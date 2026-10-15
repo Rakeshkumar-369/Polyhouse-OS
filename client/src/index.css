@@ -1,0 +1,37 @@
+/* Tailwind + a few reusable component classes used across all pages */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply text-slate-800 antialiased; }
+  input, select, textarea { font-size: 16px; } /* stops iOS zoom on focus */
+}
+
+@layer components {
+  .card { @apply bg-white rounded-2xl border border-slate-200/70 shadow-sm; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-medium text-sm transition active:scale-[.98] disabled:opacity-50 disabled:pointer-events-none; }
+  .btn-primary { @apply btn bg-brand-700 text-white hover:bg-brand-800; }
+  .btn-light { @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200; }
+  .btn-outline { @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50; }
+  .btn-danger { @apply btn bg-red-50 text-red-700 hover:bg-red-100; }
+  .input { @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-[15px] outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-100; }
+  .label { @apply block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide; }
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition cursor-pointer select-none; }
+  .chip-on { @apply chip border-brand-700 bg-brand-700 text-white; }
+  .chip-off { @apply chip border-slate-300 bg-white text-slate-700 hover:border-brand-600; }
+  .tbl { @apply w-full text-sm; }
+  .tbl th { @apply text-left font-semibold text-slate-500 text-xs uppercase tracking-wide px-3 py-2 bg-slate-50 border-b border-slate-200 whitespace-nowrap; }
+  .tbl td { @apply px-3 py-2 border-b border-slate-100 whitespace-nowrap; }
+  .tbl tr:hover td { @apply bg-slate-50/60; }
+  .num { @apply text-right tabular-nums; }
+  .h-title { @apply text-xl font-bold text-slate-900; }
+}
+
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+  .card { box-shadow: none; border-color: #ddd; }
+}

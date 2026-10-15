@@ -1,0 +1,264 @@
+<!doctype html>
+<!--
+================================================================================
+ POLYHOUSE OS - ABOUT THE APPLICATION
+================================================================================
+ Polyhouse OS is a farm operating system for polyhouse owners, open-field
+ farmers, owners with many polyhouses, Farmer Producer Organisations (FPOs) and
+ farmers with land at different places. It records every operation once - at
+ the farm, from a phone - and turns it into dashboards the owner can act on the
+ same day: what was plucked, what was sold to which vendor at what price, what
+ was spent, who owes money, cost per kg vs price per kg, P&L and balance sheet.
+
+ There is NO payment gateway. Money is recorded as line entries (sales,
+ payments received, expenses, wages) by the owner, staff, labour and vendors.
+
+ WHO USES IT (roles)
+   superadmin  - platform owner. Creates a customer organisation (e.g. "XYZ
+                 Polyhouse") together with its owner's admin login. Can suspend,
+                 reset password, or "Open" the org to set it up on their behalf.
+   admin       - the farm owner. Sets up the farm and his "vision": company,
+                 farms (acres, length, width, height, rent, lease), crops,
+                 workers with salaries, vendors and vendor-wise prices, how often
+                 he sells, grades, opening cash, and turns modules ON/OFF.
+   manager     - everything except Settings.
+   supervisor  - harvest, sell, attendance, EC/pH, climate, scouting, sprays,
+                 tasks, stock. No money reports.
+   delivery    - Sell screen (crop -> vendor -> quantity; price comes from the
+                 vendor's price list) and harvest entry. The owner's dashboard
+                 updates instantly.
+   vendor      - vendor login: sees deliveries, confirms / reports rejected qty,
+                 statement & dues, his prices, places orders.
+   labour      - worker login: check-in/out, today's tasks, earnings this week /
+                 month, attendance calendar, payslips, spray "do not enter" bays.
+
+ MODULES (each can be switched off by the admin in Settings > Modules)
+   Grow  : crop cycle planner, fertigation recipes + EC/pH log, climate log,
+           scouting + spray log (harvest lock until pre-harvest interval ends)
+   Work  : daily tasks, workers & salaries (daily / monthly / piece rate),
+           attendance sheet, advances / bonus / deductions, wage run & pay,
+           labour login
+   Spend : expenses & purchases (seeds, trays, grow bags, grow slabs, threads,
+           iron, fertiliser, rent, current ...), bill photo, credit purchases
+           (payables), input stock with low-stock alert, recurring payments
+           (rent, electricity, EMI) auto-posted when due
+   Sell  : harvest by crop/grade/bay, sales to vendors at vendor-specific price,
+           rejections, vendor orders, payments received, receivables & overdue,
+           vendor login, WhatsApp reminder link
+   Decide: dashboard with one-line finding, KPIs vs previous period, charts,
+           reports with Day/Week/Month/FY/custom dropdown (crops, vendors, price
+           matrix, sales sheet, expenses, farms, P&L, balance sheet, day book),
+           CSV export & print, alerts, loans & EMI, assets & depreciation,
+           other income (subsidy), document vault.
+
+ TECH: React 18 + Vite + Tailwind CSS (+ Bootstrap Icons) + Recharts on the
+ client; Node.js + Express REST API; MySQL (mysql2). JWT login. Multi-tenant:
+ every table has org_id.
+================================================================================
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Polyhouse OS - Contents</title>
+<style>
+  :root { --ink:#1e293b; --muted:#64748b; --line:#e2e8f0; --brand:#15803d; --bg:#f8fafc; --code:#f1f5f9; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: var(--ink); background: var(--bg); margin: 0; line-height: 1.5; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { color: var(--brand); margin-bottom: 4px; } h2 { margin-top: 36px; border-bottom: 2px solid var(--line); padding-bottom: 6px; }
+  h3 { margin: 22px 0 6px; font-size: 1.05rem; }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
+  table { width: 100%; border-collapse: collapse; background: #fff; font-size: .92rem; margin: 8px 0; }
+  th, td { text-align: left; border: 1px solid var(--line); padding: 6px 8px; vertical-align: top; }
+  th { background: #f1f5f9; } td:first-child { white-space: nowrap; }
+  .muted { color: var(--muted); } nav a { margin-right: 12px; color: var(--brand); }
+  .box { background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 16px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Polyhouse OS — what is where</h1>
+<p class="muted">Use this map to jump straight to the file (and the part of the file) that needs a change. Line numbers are approximate (~); search the named function / key to land exactly.</p>
+<nav><a href="#run">Run</a><a href="#tree">Folder tree</a><a href="#server">Server files</a><a href="#client">Client files</a><a href="#recipes">Change recipes</a><a href="#api">API list</a><a href="#rules">Business rules</a></nav>
+
+<h2 id="run">1. Run it</h2>
+<div class="box">
+<pre>npm run setup          # installs server + client packages
+cp server/.env.example server/.env   # set MySQL user/password, JWT secret, super admin login
+npm run migrate        # creates the MySQL tables (server/src/schema.sql)
+npm run seed           # creates the super admin   (or: npm run demo  -> also demo farm "XYZ Polyhouse")
+npm run dev            # API on :4000 + React on :5173 (open http://localhost:5173)
+npm run build && npm start   # production: Express serves the built React app on :4000</pre>
+Demo logins (after <code>npm run demo</code>): super admin <code>superadmin / admin123</code>, owner <code>xyz / xyz123</code>, supervisor <code>super1</code>, delivery <code>delivery1</code>, vendor <code>vendor1</code>, labour <code>labour1</code> (password <code>demo123</code>).
+</div>
+
+<h2 id="tree">2. Folder tree</h2>
+<pre>
+package.json                 root scripts (setup, dev, build, start, migrate, seed, demo)
+Contents1.html               this file
+README.md                    short intro + how to run
+server/
+  .env.example               DB + JWT + super admin settings
+  src/index.js               Express app, mounts all routes, serves client/dist
+  src/db.js                  MySQL pool, q() and one() helpers
+  src/schema.sql             ALL tables
+  src/migrate.js             runs schema.sql
+  src/seed.js                super admin + demo org data
+  src/config.js              MODULES list, customer-type presets, default expense categories, alert thresholds, role groups
+  src/orgService.js          createOrg(): new customer + default categories + admin login
+  src/resources.js           RESOURCE REGISTRY: every table's fields, labels, permissions, form metadata + business hooks
+  src/reportService.js       ALL calculations: summary, P&amp;L, balance sheet, receivables, payables, alerts, finding sentence
+  src/middleware/auth.js     JWT login check, role guard allow(), module guard moduleOn()
+  src/routes/auth.js         login, change password
+  src/routes/superadmin.js   customer orgs (create/edit/suspend/reset/open)
+  src/routes/settings.js     org profile, module toggles, thresholds, users &amp; logins
+  src/routes/crud.js         generic list/add/edit/delete for every resource + /api/meta
+  src/routes/ops.js          price lookup, produce stock, spray locks, attendance sheet, wage calculator, recurring posting, uploads
+  src/routes/reports.js      dashboard, report endpoints, vendor statement, day book, alerts
+  src/routes/portal.js       vendor login API + labour login API
+  uploads/                   bill photos &amp; documents (served only to the same org)
+client/
+  index.html, vite.config.js, tailwind.config.js, postcss.config.js
+  public/favicon.svg         logo
+  src/main.jsx               React root (router, toast, auth providers)
+  src/App.jsx                routes; which home each role gets
+  src/api.js                 fetch wrapper, token, upload, file URL
+  src/auth.jsx               login state + /api/meta; on(module) helper; currency
+  src/nav.js                 menu items, groups, phone bottom tabs, visibility rules
+  src/utils.js               money/number/date format, period presets (Day/Week/Month/FY), CSV export, chart palette
+  src/index.css              Tailwind + shared classes (.card .btn-primary .input .chip .tbl ...)
+  src/components/Ui.jsx      Card, Stat tile, Badge, Modal (bottom sheet), Toast, Toggle, Chips, PageHeader
+  src/components/Form.jsx    useOptions() dropdown cache, FieldInput (per field type), ResourceForm (add/edit/delete)
+  src/components/ResourcePage.jsx  generic list screen (/m/:res): filters, search, table/cards, totals, CSV, add button
+  src/components/PeriodPicker.jsx  the period dropdown (+ custom dates, by day/week/month)
+  src/components/Charts.jsx  MoneyTrend, CropStack, CostVsPrice, ShareBars, SimpleLine, Donut
+  src/components/Layout.jsx  sidebar (desktop), top bar + bottom tabs (phone), MorePage
+  src/pages/*.jsx            one file per screen (see below)
+</pre>
+
+<h2 id="server">3. Server files in detail</h2>
+
+<h3>server/src/resources.js — the registry (most edits happen here)</h3>
+<table>
+<tr><th>Where</th><th>What</th></tr>
+<tr><td>~27 GRADES, PAY_MODES</td><td>Grade list (A, B, C, Mixed) and payment modes used in dropdowns.</td></tr>
+<tr><td>~33 lookupPrice()</td><td>Vendor price for crop+grade on a date (latest <code>effective_from</code>), falls back to crop default price.</td></tr>
+<tr><td>~44 activeLocks()</td><td>Bays/farms still inside a spray's pre-harvest interval (harvest lock).</td></tr>
+<tr><td>~62 syncLinkedExpense()</td><td>Keeps an auto-created expense in sync with a wage payment / loan interest.</td></tr>
+<tr><td>~72 farms</td><td>Farm / polyhouse / field: name, type, member (FPO), location, acres, length, width, height, ownership, rent, lease end, structure &amp; polyfilm dates.</td></tr>
+<tr><td>~96 bays · ~106 crops · ~119 crop_cycles</td><td>Bays/plots; crop master (unit, default price, chart colour); crop cycle planner.</td></tr>
+<tr><td>~141 parties</td><td>Vendors (buyer / supplier / both), credit days, opening balance.</td></tr>
+<tr><td>~159 price_list</td><td>Vendor × crop × grade price with effective date (admin input).</td></tr>
+<tr><td>~171 harvests (hook before)</td><td>Harvest entry; blocks a locked bay unless owner sends <code>override_lock</code>.</td></tr>
+<tr><td>~199 orders</td><td>Vendor orders.</td></tr>
+<tr><td>~214 sales (hooks)</td><td>Sale/delivery. <b>before</b>: rate from price list if blank, amount = (qty − rejected) × rate. <b>after</b>: marks linked order fulfilled.</td></tr>
+<tr><td>~252 payments_received · ~264 other_income</td><td>Money in from vendors; subsidy / scrap / other income.</td></tr>
+<tr><td>~275 expense_categories</td><td>Categories (kind = input / labour / rent / utility / transport / packaging / repair / interest / other).</td></tr>
+<tr><td>~283 inventory_items · ~296 stock_moves</td><td>Input stock (current stock computed from moves); stock in/out/adjust.</td></tr>
+<tr><td>~309 expenses (hooks)</td><td>Every spend. amount = qty × rate if blank; purchase of a stock item adds a stock "in" move.</td></tr>
+<tr><td>~347 recurring_expenses</td><td>Rent, current, EMI: amount, frequency, next due, auto-post.</td></tr>
+<tr><td>~362 workers · ~378 attendance · ~392 advances</td><td>Worker with pay type (daily / monthly / piece) &amp; salary; attendance; advance / bonus / deduction.</td></tr>
+<tr><td>~403 wage_payments (hooks)</td><td>net = gross + bonus − deductions; posts gross+bonus to Expenses (Labour).</td></tr>
+<tr><td>~436 tasks</td><td>Daily tasks by bay and worker.</td></tr>
+<tr><td>~450 fertigation_recipes · ~463 fertigation_logs</td><td>Recipe with EC/pH bands per crop stage; daily feed/drain EC &amp; pH.</td></tr>
+<tr><td>~479 climate_logs · ~491 scouting_logs · ~504 spray_logs</td><td>Temperature/humidity; trap counts; sprays with PHI days (safe_from computed).</td></tr>
+<tr><td>~521 assets · ~539 loans · ~554 loan_repayments · ~575 documents</td><td>Asset register with book value &amp; replace date; loans with outstanding; repayments (interest → expense); document vault.</td></tr>
+</table>
+<p class="muted">Field keys: <code>type</code> (text, number, date, time, select, ref, textarea, bool, file, color), <code>ref</code> (other resource), <code>list:true</code> (show in table), <code>required</code>, <code>default</code> ('today'), <code>help</code>, <code>readonly</code>, <code>virtual</code> (computed by <code>select</code> SQL), <code>dependsOn</code> (e.g. bay depends on farm), <code>module</code> (hide field when module off).</p>
+
+<h3>server/src/reportService.js — every number on dashboards &amp; reports</h3>
+<table>
+<tr><td>~17 bucketExpr()</td><td>Group by day / week (Monday start) / month.</td></tr>
+<tr><td>~24 receivables()</td><td>Per vendor: opening + sales − payments; <b>overdue</b> = balance not covered by sales inside credit days.</td></tr>
+<tr><td>~39 payables()</td><td>Unpaid supplier bills (credit / part-paid expenses).</td></tr>
+<tr><td>~47 depreciation()</td><td>Straight-line depreciation of assets for the period.</td></tr>
+<tr><td>~61 summary()</td><td>Totals, by crop (harvest, sold, rejected, revenue, avg price, direct + shared cost, cost/unit, profit, margin), by vendor, price matrix, by category, by farm, trend, crop trend, labour. Shared-cost split by area × days of crop cycles (fallback: revenue share).</td></tr>
+<tr><td>~203 pnl()</td><td>Profit &amp; loss for any range.</td></tr>
+<tr><td>~219 balance()</td><td>Balance sheet on a date: cash (computed), receivables, stock, advances, fixed assets vs loans, payables; net worth.</td></tr>
+<tr><td>~267 alerts()</td><td>EC/pH out of band, salt build-up, climate, pest pressure, harvest lock, vendor overdue, high rejection, pending orders, low stock, cost above price, recurring due, asset service/replacement, document expiry, lease ending.</td></tr>
+<tr><td>~347 finding()</td><td>The one-sentence headline on the dashboard.</td></tr>
+</table>
+
+<h3>Other server files</h3>
+<table>
+<tr><td>config.js</td><td><code>MODULES</code> (toggle list shown in Settings), <code>CUSTOMER_TYPES</code> (5 customer kinds + default modules), <code>DEFAULT_CATEGORIES</code>, <code>DEFAULT_SETTINGS</code> (sale frequency, currency, grades, thresholds), role groups STAFF / MANAGERS / FIELD.</td></tr>
+<tr><td>routes/crud.js</td><td>~25 buildSelect (joins labels of ref fields) · ~45 clean (type checks, org ownership of refs, required) · ~77 /meta · ~87 list · ~99 options · ~120 create · ~131 update · ~143 delete.</td></tr>
+<tr><td>routes/ops.js</td><td>~17 /price · ~24 produceStock (harvest − sold, last 3 days) · ~53 attendance sheet · ~77 calcWages (daily / monthly / piece / overtime / advance recovery) · ~125 wage-run · ~144 postDueRecurring · ~180 upload · ~186 file download.</td></tr>
+<tr><td>routes/reports.js</td><td>~20 /dashboard (owner vs field view; also auto-posts due recurring payments) · ~56 summary · ~63 pnl · ~68 balance · ~72 receivables · ~84 vendorStatement · ~101 daybook · ~112 alerts.</td></tr>
+<tr><td>routes/portal.js</td><td>Vendor: ~17 portal data · ~31 confirm delivery / rejection (7-day window) · ~44 place order · ~53 cancel. Labour: ~63 portal data · ~79 check-in/out · ~90 mark task done.</td></tr>
+<tr><td>routes/settings.js</td><td>GET/PUT /settings (profile + settings JSON merge) · users CRUD (role, link worker for labour / vendor for vendor).</td></tr>
+<tr><td>routes/superadmin.js</td><td>List orgs with stats · create (orgService) · edit · reset admin password · impersonate ("Open") · suspend.</td></tr>
+<tr><td>middleware/auth.js</td><td>auth (loads req.user, req.org with merged settings) · allow(...roles) · moduleOn(key) · isOn().</td></tr>
+</table>
+
+<h2 id="client">4. Client screens (client/src/pages)</h2>
+<table>
+<tr><th>File</th><th>Route</th><th>What it shows</th></tr>
+<tr><td>Dashboard.jsx</td><td>/</td><td>Owner: period dropdown, farm filter, setup checklist (<code>Setup</code>), finding banner, 6 KPI tiles, sales-vs-expenses chart, alerts, cost-vs-price chart, crop table, vendor table, where money went, labour tiles, <code>Today</code> box. Supervisor: today view.</td></tr>
+<tr><td>Sell.jsx</td><td>/sell</td><td>Delivery entry: crop chips → grade → vendor → qty; auto price (only admin/manager can change rate); open orders; today's sales; produce stock.</td></tr>
+<tr><td>Harvest.jsx</td><td>/harvest</td><td>Pluck entry by crop/grade/farm/bay/picker; spray lock banner; owner override.</td></tr>
+<tr><td>Spend.jsx</td><td>/spend</td><td>Expense entry with category chips, stock item qty × rate, credit purchase, bill photo; recent expenses.</td></tr>
+<tr><td>Reports.jsx</td><td>/reports</td><td>Tabs: Overview, Crops, Vendors (+ price matrix), Sales sheet, Expenses, Farms, P&amp;L, Balance sheet, Day book. CSV + print. <code>TABS</code> at top; <code>Table</code> helper.</td></tr>
+<tr><td>Vendors.jsx</td><td>/vendors</td><td>Vendor cards with due/overdue; modal <code>Statement</code> (running balance), <code>PaymentForm</code>, price list, edit, WhatsApp reminder.</td></tr>
+<tr><td>Labour.jsx</td><td>/labour</td><td><code>Attendance</code> (P/½/A/L per worker), <code>WageRun</code> (calculate &amp; pay), workers, advances.</td></tr>
+<tr><td>Alerts.jsx</td><td>/alerts</td><td>Alert list (<code>AlertList</code> also used on dashboard), level colours in <code>LEVEL</code>.</td></tr>
+<tr><td>Settings.jsx</td><td>/settings</td><td><code>Profile</code> (company + sale frequency, grades, currency, opening cash), <code>Modules</code> toggles, <code>Thresholds</code>, <code>Users</code> (logins). Role descriptions in <code>ROLES</code>.</td></tr>
+<tr><td>SuperAdmin.jsx</td><td>(superadmin)</td><td>Customer cards, create customer with type + admin login, open/edit/reset/suspend.</td></tr>
+<tr><td>VendorPortal.jsx</td><td>(vendor)</td><td>Deliveries + confirm, statement, prices, orders.</td></tr>
+<tr><td>LabourPortal.jsx</td><td>(labour)</td><td>Check-in button, locks, earnings, tasks, attendance calendar, payslips.</td></tr>
+<tr><td>Login.jsx · Account.jsx</td><td>/login · /account</td><td>Login for all roles; change password.</td></tr>
+<tr><td>components/ResourcePage.jsx</td><td>/m/:res</td><td>Every other list (farms, crops, workers, assets, loans, documents, EC/pH log ...) generated from resources.js.</td></tr>
+</table>
+
+<h2 id="recipes">5. Change recipes (edit only these files)</h2>
+<table>
+<tr><th>I want to…</th><th>Edit</th></tr>
+<tr><td>Add a field to an existing form (e.g. vendor WhatsApp no.)</td><td>1) <code>server/src/schema.sql</code> add column (and run <code>ALTER TABLE parties ADD COLUMN whatsapp VARCHAR(30);</code> on the live DB) 2) <code>server/src/resources.js</code> add a line in that resource's <code>fields</code>. Client updates itself.</td></tr>
+<tr><td>Add a brand-new simple list screen</td><td>schema.sql (table with org_id) → resources.js (new entry) → <code>client/src/nav.js</code> add <code>{ to: '/m/&lt;key&gt;', ... }</code> in a group. Optional: config.js MODULES for a toggle.</td></tr>
+<tr><td>Add a new on/off module</td><td><code>server/src/config.js</code> MODULES (+ CUSTOMER_TYPES presets), set <code>module:</code> on resources / nav items.</td></tr>
+<tr><td>Change who can see/edit something</td><td>resources.js <code>read</code>/<code>write</code>; custom routes use <code>allow(...)</code>; menu in <code>client/src/nav.js</code> <code>roles</code>.</td></tr>
+<tr><td>Change price logic for sales</td><td>resources.js <code>lookupPrice()</code> and <code>sales.hooks.before</code>.</td></tr>
+<tr><td>Change wage calculation</td><td><code>server/src/routes/ops.js</code> <code>calcWages()</code>.</td></tr>
+<tr><td>Change profit / cost per kg / overdue maths</td><td><code>server/src/reportService.js</code> <code>summary()</code> / <code>receivables()</code>.</td></tr>
+<tr><td>Add / change an alert</td><td>reportService.js <code>alerts()</code>; limits default in config.js <code>DEFAULT_SETTINGS.thresholds</code> and labels in Settings.jsx <code>Thresholds</code>.</td></tr>
+<tr><td>Change dashboard headline</td><td>reportService.js <code>finding()</code>.</td></tr>
+<tr><td>Change dashboard layout / tiles</td><td><code>client/src/pages/Dashboard.jsx</code>.</td></tr>
+<tr><td>Add a report tab</td><td><code>client/src/pages/Reports.jsx</code> (<code>TABS</code> + a block), data from <code>/reports/summary</code> or a new route in routes/reports.js.</td></tr>
+<tr><td>Change period dropdown options (Day/Week/Month/FY)</td><td><code>client/src/utils.js</code> <code>PERIODS</code> + <code>periodRange()</code>.</td></tr>
+<tr><td>Change colours / buttons / look</td><td><code>client/tailwind.config.js</code> (brand colours) and <code>client/src/index.css</code> (.btn, .card, .input ...). Chart colours: utils.js <code>PALETTE</code>, Charts.jsx <code>C</code>.</td></tr>
+<tr><td>Change phone bottom tabs / menu</td><td><code>client/src/nav.js</code> (<code>MAIN</code>, <code>GROUPS</code>, <code>mobileTabs()</code>).</td></tr>
+<tr><td>Default expense categories for new customers</td><td>config.js <code>DEFAULT_CATEGORIES</code>.</td></tr>
+<tr><td>Customer types (single polyhouse, crop field, multi-polyhouse, FPO, multi-location)</td><td>config.js <code>CUSTOMER_TYPES</code>.</td></tr>
+<tr><td>Vendor login abilities</td><td>server routes/portal.js (vendor part) + client pages/VendorPortal.jsx.</td></tr>
+<tr><td>Labour login abilities</td><td>server routes/portal.js (labour part) + client pages/LabourPortal.jsx.</td></tr>
+</table>
+
+<h2 id="api">6. API list</h2>
+<table>
+<tr><td>POST /api/auth/login · /api/auth/change-password</td><td>login returns JWT token</td></tr>
+<tr><td>GET /api/meta</td><td>user, org (settings, modules), resource definitions for forms</td></tr>
+<tr><td>GET/POST/PUT/DELETE /api/r/:res[/:id] · GET /api/r/:res/options</td><td>generic CRUD; list takes <code>from, to, q, limit</code> + resource filters</td></tr>
+<tr><td>/api/ops/price · produce-stock · locks · attendance-sheet · wage-calc · wage-run · recurring/post · upload · file/:name</td><td>operations helpers</td></tr>
+<tr><td>/api/dashboard · /api/reports/summary · pnl · balance · receivables · vendor/:id · daybook · /api/alerts</td><td>dashboards &amp; reports</td></tr>
+<tr><td>/api/settings · /api/users</td><td>admin settings &amp; logins</td></tr>
+<tr><td>/api/super/orgs[...]</td><td>super admin</td></tr>
+<tr><td>/api/portal/vendor[...] · /api/portal/labour[...]</td><td>vendor &amp; labour logins</td></tr>
+</table>
+
+<h2 id="rules">7. Business rules in one place</h2>
+<ul>
+<li>Sale amount = (quantity − rejected) × rate. Rate = vendor price list (latest effective date) → else crop default price. Delivery/supervisor cannot change the rate.</li>
+<li>Vendor can confirm or report rejected quantity within 7 days; amount is recalculated, status becomes accepted / disputed.</li>
+<li>Overdue = vendor balance minus sales still inside the vendor's credit days.</li>
+<li>Spray with PHI days locks harvest of that bay (or the whole farm if no bay) until date + PHI. Owner can override.</li>
+<li>Purchase expense with a stock item → stock in. Stock out is entered in Stock in/out.</li>
+<li>Expense paid by "credit" (or part-paid) → payable to supplier in the balance sheet.</li>
+<li>Recurring payments with auto-post are added to Expenses when due (checked on dashboard load).</li>
+<li>Wages: daily = days × wage; monthly = salary/30 × period days − absent days; piece = kg × rate; overtime = hours × day wage / 8. Paying posts gross + bonus as a Labour expense and recovers advances.</li>
+<li>Cost per crop = direct expenses tagged to its crop cycle + share of all other costs (incl. depreciation) by area × days of running crop cycles.</li>
+<li>Balance-sheet cash = opening cash (Settings) + money in − money out from the books-start date.</li>
+<li>Turning a module off hides its screens and blocks its API; data is kept.</li>
+</ul>
+</main>
+</body>
+</html>
