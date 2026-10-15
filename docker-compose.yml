@@ -1,0 +1,44 @@
+# One command:  docker compose up -d --build   ->  http://localhost:4000  (or http://<server-ip>)
+# Change the passwords below (or put them in a .env file next to this file) before using it for real.
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: polyhouse_os
+      MYSQL_USER: poly
+      MYSQL_PASSWORD: ${DB_PASSWORD:-poly123}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass123}
+      TZ: Asia/Kolkata
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD:-rootpass123}"]
+      interval: 5s
+      retries: 30
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-4000}:4000"
+    environment:
+      DB_HOST: db
+      DB_USER: poly
+      DB_PASSWORD: ${DB_PASSWORD:-poly123}
+      DB_NAME: polyhouse_os
+      JWT_SECRET: ${JWT_SECRET:-please-change-this-long-random-secret}
+      SUPERADMIN_LOGIN: ${SUPERADMIN_LOGIN:-superadmin}
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-admin123}
+      DEMO_MODE: ${DEMO_MODE:-false}
+      SEED_DEMO: ${SEED_DEMO:-false}
+      TZ: Asia/Kolkata
+    volumes:
+      - uploads:/app/server/uploads
+
+volumes:
+  dbdata:
+  uploads:

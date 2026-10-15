@@ -2,10 +2,10 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const { q, one } = require('../db');
-const { sign, auth } = require('../middleware/auth');
+const { sign, auth, limit } = require('../middleware/auth');
 const { wrap } = require('./crud');
 
-router.post('/login', wrap(async (req, res) => {
+router.post('/login', limit(10, 600, { failuresOnly: true }), wrap(async (req, res) => {
   const { login, password } = req.body || {};
   const u = await one('SELECT * FROM users WHERE login=?', [String(login || '').trim()]);
   if (!u || !(await bcrypt.compare(String(password || ''), u.password_hash))) return res.status(401).json({ error: 'Wrong login or password' });
@@ -15,7 +15,7 @@ router.post('/login', wrap(async (req, res) => {
     if (!org || org.status !== 'active') return res.status(403).json({ error: 'Your organisation is suspended' });
   }
   await q('UPDATE users SET last_login=NOW() WHERE id=?', [u.id]);
-  res.json({ token: sign(u), user: { id: u.id, name: u.name, role: u.role, org_id: u.org_id } });
+  res.json({ token: sign(u), user: { id: u.id, name: u.name, role: u.role, org_id: u.org_id, lang: u.lang } });
 }));
 
 router.post('/change-password', auth, wrap(async (req, res) => {
@@ -24,6 +24,12 @@ router.post('/change-password', auth, wrap(async (req, res) => {
   if (!(await bcrypt.compare(String(current || ''), u.password_hash))) return res.status(400).json({ error: 'Current password is wrong' });
   if (!next || String(next).length < 6) return res.status(400).json({ error: 'New password must be at least 6 characters' });
   await q('UPDATE users SET password_hash=? WHERE id=?', [await bcrypt.hash(next, 10), req.user.id]);
+  res.json({ ok: true });
+}));
+
+router.put('/lang', auth, wrap(async (req, res) => {
+  const lang = ['en', 'te'].includes(req.body?.lang) ? req.body.lang : 'en';
+  await q('UPDATE users SET lang=? WHERE id=?', [lang, req.user.id]);
   res.json({ ok: true });
 }));
 

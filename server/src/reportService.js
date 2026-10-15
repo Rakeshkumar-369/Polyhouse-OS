@@ -168,6 +168,18 @@ async function summary(org, from, to, farmId, group = 'day') {
     return row;
   });
 
+  // average realised price per crop over time (spot price drops early)
+  const ptRows = await q(`SELECT ${bucketExpr('date', group)} b, crop_id, SUM(amount)/NULLIF(SUM(quantity - COALESCE(rejected_qty,0)),0) rate FROM sales s
+      WHERE org_id=? AND date BETWEEN ? AND ? ${fSales} GROUP BY b, crop_id`, P());
+  const priceTrend = buckets.map((b) => {
+    const row = { bucket: b };
+    for (const r of ptRows.filter((x) => x.b === b)) row[cropName(r.crop_id)] = r2(r.rate);
+    return row;
+  });
+  // which weekday sells best (average sales per day of week)
+  const wd = await q(`SELECT WEEKDAY(date) d, SUM(amount) amt, COUNT(DISTINCT date) days FROM sales s WHERE org_id=? AND date BETWEEN ? AND ? ${fSales} GROUP BY d`, P());
+  const weekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((n, i) => { const r = wd.find((x) => x.d === i); return { day: n, avg: r ? r2(r.amt / r.days) : 0 }; });
+
   // --- labour ---
   let labour = null;
   if (on(org, 'labour')) {
@@ -197,7 +209,18 @@ async function summary(org, from, to, farmId, group = 'day') {
   totals.margin = totals.revenue ? r2((100 * totals.profit) / (totals.revenue + totals.other_income)) : 0;
   totals.sell_through = totals.harvested ? r2((100 * totals.sold) / totals.harvested) : 0;
 
-  return { from, to, group, totals, byCrop, byVendor, priceMatrix, byCategory, byFarm, trend, cropTrend, labour };
+    totals.wastage_pct = totals.harvested ? r2((100 * totals.culls) / totals.harvested) : 0;
+  totals.rejection_pct = totals.sold ? r2((100 * totals.rejected) / totals.sold) : 0;
+  totals.avg_price = totals.sold - totals.rejected ? r2(totals.revenue / (totals.sold - totals.rejected)) : 0;
+  const acres = farmsRows.filter((f) => !farmId || f.id == farmId).reduce((a, f) => a + Number(f.area_acres || 0), 0);
+  totals.acres = r2(acres);
+  totals.profit_per_acre = acres ? r2(totals.profit / acres) : 0;
+  // best paying vendor for each crop
+  const bestVendor = matrixCrops.map((c) => {
+    const best = byVendor.map((v) => ({ name: v.name, rate: (v.crops.find((x) => x.crop_id === c.crop_id) || {}).avg_rate || 0 })).sort((a, b) => b.rate - a.rate)[0];
+    return { crop: c.crop, avg: c.avg, vendor: best?.name, rate: best?.rate || 0 };
+  });
+  return { from, to, group, totals, byCrop, byVendor, priceMatrix, bestVendor, byCategory, byFarm, trend, cropTrend, priceTrend, weekday, labour };
 }
 
 async function pnl(org, from, to, farmId) {
@@ -363,4 +386,42 @@ function finding(s, prev, cur = '₹') {
   return parts.join('; ') + '.';
 }
 
-module.exports = { summary, pnl, balance, receivables, payables, alerts, finding, depreciation };
+// Extra decision data for the owner dashboard: ageing of dues, days to collect, cash, crop cycles vs target
+async function insights(org, s) {
+  const o = org.id; const now = today();
+  // Receivable ageing: unpaid balance is matched to the oldest sales first
+  const rec = (await receivables(o)).filter((r) => r.balance > 0);
+  const buckets = [['0-7 days', 7], ['8-15 days', 15], ['16-30 days', 30], ['31-60 days', 60], ['60+ days', 1e9]].map(([label, max]) => ({ label, max, amount: 0 }));
+  for (const r of rec) {
+    let left = r.balance;
+    const sales = await q('SELECT date, amount FROM sales WHERE party_id=? ORDER BY date DESC, id DESC LIMIT 400', [r.party_id]);
+    for (const x of sales) {
+      if (left <= 0) break;
+      const amt = Math.min(left, Number(x.amount)); left -= amt;
+      const age = days(x.date, now) - 1;
+      buckets.find((b) => age <= b.max).amount += amt;
+    }
+    if (left > 0) buckets[4].amount += left; // opening balance
+  }
+  buckets.forEach((b) => { b.amount = r2(b.amount); delete b.max; });
+  const sales30 = Number((await one('SELECT COALESCE(SUM(amount),0) t FROM sales WHERE org_id=? AND date > DATE_SUB(?, INTERVAL 30 DAY)', [o, now])).t);
+  const receivable = rec.reduce((a, r) => a + r.balance, 0);
+  const dso = sales30 ? Math.round(receivable / (sales30 / 30)) : 0;
+
+  let cash = null;
+  if (on(org, 'finance')) cash = (await balance(org, now)).assets[0].amount;
+
+  // Crop cycles: yield so far vs target
+  let cycles = [];
+  if (on(org, 'crop_cycles')) {
+    cycles = await q(`SELECT c.id, COALESCE(c.name, cr.name) name, cr.name crop, cr.color, cr.unit, f.name farm, c.area_sqm, c.target_yield_kg, c.transplant_date, c.harvest_start, c.harvest_end, c.status,
+        COALESCE((SELECT SUM(quantity) FROM harvests h WHERE h.crop_cycle_id=c.id),0) harvested,
+        COALESCE((SELECT SUM(e.amount) FROM expenses e WHERE e.crop_cycle_id=c.id),0) direct_cost
+      FROM crop_cycles c JOIN crops cr ON cr.id=c.crop_id JOIN farms f ON f.id=c.farm_id
+      WHERE c.org_id=? AND c.status IN ('growing','harvesting') ORDER BY c.transplant_date LIMIT 20`, [o]);
+    cycles = cycles.map((c) => ({ ...c, yield_sqm: c.area_sqm ? r2(c.harvested / c.area_sqm) : null, target_pct: c.target_yield_kg ? Math.round((100 * c.harvested) / c.target_yield_kg) : null, age_days: c.transplant_date ? days(c.transplant_date, now) - 1 : null }));
+  }
+  return { ageing: buckets, dso, receivable: r2(receivable), cash, cycles };
+}
+
+module.exports = { insights, summary, pnl, balance, receivables, payables, alerts, finding, depreciation };

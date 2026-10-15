@@ -1,20 +1,20 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import 'bootstrap-icons/font/bootstrap-icons.css';
 import './index.css';
 import App from './App';
-import { AuthProvider } from './auth';
-import { ToastProvider } from './components/Ui';
+import { AuthProvider } from './lib/auth';
+import { ToastProvider } from './ui/kit';
+import { getLang } from './lib/i18n';
 
+document.documentElement.lang = getLang();
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <ToastProvider>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </ToastProvider>
-    </BrowserRouter>
+    <ToastProvider>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </ToastProvider>
   </React.StrictMode>,
 );
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));

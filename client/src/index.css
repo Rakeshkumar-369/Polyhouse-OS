@@ -1,37 +1,44 @@
-/* Tailwind + a few reusable component classes used across all pages */
+/* Tailwind + shared component classes used across all screens */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  html { -webkit-tap-highlight-color: transparent; }
-  body { @apply text-slate-800 antialiased; }
+  html { -webkit-tap-highlight-color: transparent; text-size-adjust: 100%; }
+  body { @apply text-slate-800 antialiased bg-[#f5f7f6]; font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Telugu', 'Noto Sans', sans-serif; }
   input, select, textarea { font-size: 16px; } /* stops iOS zoom on focus */
+  :focus-visible { outline: 2px solid #16a34a; outline-offset: 2px; }
 }
 
 @layer components {
-  .card { @apply bg-white rounded-2xl border border-slate-200/70 shadow-sm; }
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-medium text-sm transition active:scale-[.98] disabled:opacity-50 disabled:pointer-events-none; }
-  .btn-primary { @apply btn bg-brand-700 text-white hover:bg-brand-800; }
+  .card { @apply bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_2px_rgba(16,24,40,.04)]; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-semibold text-sm transition active:scale-[.98] disabled:opacity-50 disabled:pointer-events-none; }
+  .btn-primary { @apply btn bg-brand-700 text-white hover:bg-brand-800 shadow-sm; }
   .btn-light { @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200; }
   .btn-outline { @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50; }
   .btn-danger { @apply btn bg-red-50 text-red-700 hover:bg-red-100; }
-  .input { @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-[15px] outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-100; }
-  .label { @apply block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide; }
-  .chip { @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition cursor-pointer select-none; }
-  .chip-on { @apply chip border-brand-700 bg-brand-700 text-white; }
-  .chip-off { @apply chip border-slate-300 bg-white text-slate-700 hover:border-brand-600; }
+  .input { @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-[15px] outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-100 disabled:bg-slate-100 disabled:text-slate-500; }
+  .label { @apply block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wider; }
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition cursor-pointer select-none; }
+  .chip-on { @apply chip border-brand-700 bg-brand-700 text-white shadow-sm; }
+  .chip-off { @apply chip border-slate-200 bg-white text-slate-700 hover:border-brand-500; }
   .tbl { @apply w-full text-sm; }
-  .tbl th { @apply text-left font-semibold text-slate-500 text-xs uppercase tracking-wide px-3 py-2 bg-slate-50 border-b border-slate-200 whitespace-nowrap; }
-  .tbl td { @apply px-3 py-2 border-b border-slate-100 whitespace-nowrap; }
-  .tbl tr:hover td { @apply bg-slate-50/60; }
+  .tbl th { @apply text-left font-semibold text-slate-500 text-[11px] uppercase tracking-wider px-3 py-2.5 bg-slate-50/80 border-b border-slate-200 whitespace-nowrap; }
+  .tbl td { @apply px-3 py-2.5 border-b border-slate-100 whitespace-nowrap; }
+  .tbl tbody tr:hover td { @apply bg-brand-50/40; }
   .num { @apply text-right tabular-nums; }
-  .h-title { @apply text-xl font-bold text-slate-900; }
 }
 
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.scrollbar-none { scrollbar-width: none; } .scrollbar-none::-webkit-scrollbar { display: none; }
+.fade-in { animation: fade .18s ease-out; }
+.sheet-in { animation: sheet .22s cubic-bezier(.2,.8,.2,1); }
+@keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sheet { from { transform: translateY(24px); opacity: .6 } to { transform: none; opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { .fade-in, .sheet-in { animation: none } }
 @media print {
   .no-print { display: none !important; }
-  body { background: #fff; }
-  .card { box-shadow: none; border-color: #ddd; }
+  body { background: #fff; } main { padding: 0 !important; }
+  .lg\:pl-64 { padding-left: 0 !important; }
+  .card { box-shadow: none; border-color: #ddd; break-inside: avoid; }
 }

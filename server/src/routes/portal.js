@@ -82,7 +82,8 @@ router.post('/labour/checkin', labour, wrap(async (req, res) => {
   if (!w) return res.status(404).json({ error: 'Worker profile not linked' });
   const a = await one('SELECT * FROM attendance WHERE worker_id=? AND date=?', [w.id, t]);
   if (!a) await q("INSERT INTO attendance (org_id,worker_id,date,status,check_in,farm_id) VALUES (?,?,?,'present',?,?)", [req.org.id, w.id, t, now, w.farm_id]);
-  else if (!a.check_out && a.check_in) await q('UPDATE attendance SET check_out=? WHERE id=?', [now, a.id]);
+  else if (!a.check_in) await q("UPDATE attendance SET check_in=?, status=IF(status IN ('absent','leave'),'present',status) WHERE id=?", [now, a.id]);
+  else if (!a.check_out) await q('UPDATE attendance SET check_out=? WHERE id=?', [now, a.id]);
   else return res.status(400).json({ error: 'Already checked out today' });
   res.json({ ok: true });
 }));

@@ -18,7 +18,7 @@ router.get('/orgs', wrap(async (req, res) => {
       (SELECT COALESCE(SUM(amount),0) FROM sales s WHERE s.org_id=o.id AND s.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)) sales_30d,
       (SELECT MAX(last_login) FROM users u WHERE u.org_id=o.id) last_active
     FROM organizations o ORDER BY o.created_at DESC`);
-  res.json({ orgs: rows, customerTypes: CUSTOMER_TYPES });
+  res.json({ orgs: rows, customerTypes: CUSTOMER_TYPES, newLeads: (await one("SELECT COUNT(*) n FROM demo_requests WHERE status='new'")).n });
 }));
 
 router.post('/orgs', wrap(async (req, res) => {
@@ -54,6 +54,16 @@ router.post('/orgs/:id/impersonate', wrap(async (req, res) => {
 router.delete('/orgs/:id', wrap(async (req, res) => {
   // Soft delete: suspend. Data is kept.
   await q("UPDATE organizations SET status='suspended' WHERE id=?", [req.params.id]);
+  res.json({ ok: true });
+}));
+
+// Leads from the landing page
+router.get('/leads', wrap(async (req, res) => {
+  res.json(await q('SELECT * FROM demo_requests ORDER BY created_at DESC LIMIT 500'));
+}));
+router.put('/leads/:id', wrap(async (req, res) => {
+  const s = ['new', 'contacted', 'converted', 'closed'].includes(req.body?.status) ? req.body.status : 'contacted';
+  await q('UPDATE demo_requests SET status=? WHERE id=?', [s, req.params.id]);
   res.json({ ok: true });
 }));
 

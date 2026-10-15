@@ -1,0 +1,29 @@
+# Render Blueprint - New > Blueprint > pick this repo. Fill DATABASE_URL and SUPERADMIN_PASSWORD when asked.
+services:
+  - type: web
+    name: polyhouse-os
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      - key: TZ
+        value: Asia/Kolkata
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_SSL
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SUPERADMIN_LOGIN
+        value: superadmin
+      - key: SUPERADMIN_PASSWORD
+        sync: false
+      - key: DEMO_MODE
+        value: "false"

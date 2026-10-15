@@ -48,7 +48,7 @@ router.get('/dashboard', allow(FIELD), wrap(async (req, res) => {
     users: (await one('SELECT COUNT(*) n FROM users WHERE org_id=?', [o.id])).n,
   };
   res.json({
-    role: 'owner', summary: cur, prev: prev.totals, finding: S.finding(cur, prev, o.settings.currency),
+    role: 'owner', summary: cur, prev: prev.totals, insights: await S.insights(o, cur), finding: S.finding(cur, prev, o.settings.currency),
     alerts: isOn(o, 'alerts') ? await S.alerts(o) : [], today: todayBox, setup,
   });
 }));

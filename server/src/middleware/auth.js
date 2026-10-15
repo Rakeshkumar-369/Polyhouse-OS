@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const { one } = require('../db');
 const { DEFAULT_SETTINGS } = require('../config');
 
-const SECRET = process.env.JWT_SECRET || 'dev-secret';
+const SECRET = require('../env').JWT_SECRET;
 
 function sign(user) {
   return jwt.sign({ id: user.id }, SECRET, { expiresIn: '30d' });
@@ -16,7 +16,7 @@ async function auth(req, res, next) {
     const token = h.startsWith('Bearer ') ? h.slice(7) : req.query.token;
     if (!token) return res.status(401).json({ error: 'Login required' });
     const { id } = jwt.verify(token, SECRET);
-    const user = await one('SELECT id, org_id, name, login, role, worker_id, party_id, active FROM users WHERE id=?', [id]);
+    const user = await one('SELECT id, org_id, name, login, role, worker_id, party_id, lang, active FROM users WHERE id=?', [id]);
     if (!user || !user.active) return res.status(401).json({ error: 'Account disabled' });
     req.user = user;
     if (user.org_id) {
@@ -50,4 +50,20 @@ const isOn = (org, key) => !key || !org || org.settings.modules[key] !== false;
 const moduleOn = (key) => (req, res, next) =>
   isOn(req.org, key) ? next() : res.status(403).json({ error: `Module "${key}" is turned off by admin` });
 
-module.exports = { sign, auth, allow, moduleOn, isOn, mergeSettings };
+// Simple in-memory rate limiter per IP: limit(10, 300) -> max 10 requests per 5 minutes.
+// failuresOnly: count only requests that failed (wrong password), so a busy farm office on one IP is never blocked.
+function limit(max, seconds, { failuresOnly = false } = {}) {
+  const hits = new Map();
+  return (req, res, next) => {
+    const now = Date.now(); const key = req.ip;
+    const arr = (hits.get(key) || []).filter((t) => now - t < seconds * 1000);
+    hits.set(key, arr);
+    if (arr.length >= max) return res.status(429).json({ error: 'Too many attempts. Please wait a few minutes and try again.' });
+    if (failuresOnly) res.on('finish', () => { if (res.statusCode >= 400) arr.push(Date.now()); });
+    else arr.push(now);
+    if (hits.size > 5000) hits.clear();
+    next();
+  };
+}
+
+module.exports = { limit, sign, auth, allow, moduleOn, isOn, mergeSettings };

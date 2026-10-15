@@ -2,7 +2,7 @@
 -- Polyhouse OS - MySQL schema
 -- Every business table carries org_id (one row in `organizations` per
 -- customer = tenant). Super admin users have org_id = NULL.
--- Run with:  npm run migrate   (src/migrate.js executes this file)
+-- Applied automatically when the server starts (src/migrate.js), or: npm run migrate
 -- =====================================================================
 
 CREATE TABLE IF NOT EXISTS organizations (
@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(20) NOT NULL,                   -- superadmin|admin|manager|supervisor|delivery|labour|vendor
   worker_id INT NULL,                          -- for role=labour
   party_id INT NULL,                           -- for role=vendor
+  lang VARCHAR(5) DEFAULT 'en',                -- en | te
   active TINYINT(1) NOT NULL DEFAULT 1,
   last_login DATETIME NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -487,4 +488,18 @@ CREATE TABLE IF NOT EXISTS documents (
   notes VARCHAR(300),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX (org_id)
+);
+
+-- Requests from the public landing page ("Request a demo") - shown to the super admin
+CREATE TABLE IF NOT EXISTS demo_requests (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  phone VARCHAR(30) NOT NULL,
+  email VARCHAR(150),
+  farm_type VARCHAR(40),
+  acres VARCHAR(30),
+  location VARCHAR(150),
+  message VARCHAR(500),
+  status VARCHAR(20) DEFAULT 'new',            -- new | contacted | converted | closed
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

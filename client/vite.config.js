@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// In development the React app runs on :5173 and calls the API on :4000
+// Dev: React on :5173 calls the API on :4000. Build: every screen becomes its own small lazy chunk.
 export default defineConfig({
   plugins: [react()],
-  build: { chunkSizeWarningLimit: 900, rollupOptions: { output: { manualChunks: { charts: ['recharts'], vendor: ['react', 'react-dom', 'react-router-dom'] } } } },
+  build: { target: 'es2019', cssCodeSplit: true, rollupOptions: { output: { manualChunks: { react: ['react', 'react-dom'] } } } },
   server: { host: true, proxy: { '/api': 'http://localhost:4000' } },
 });

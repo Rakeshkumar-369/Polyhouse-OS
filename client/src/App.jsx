@@ -1,50 +1,65 @@
-// Routes. Each role lands on its own home screen.
-import { Navigate, Route, Routes } from 'react-router-dom';
-import { useAuth } from './auth';
-import Layout, { MorePage } from './components/Layout';
-import ResourcePage from './components/ResourcePage';
-import { Spinner } from './components/Ui';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Sell from './pages/Sell';
-import Harvest from './pages/Harvest';
-import Spend from './pages/Spend';
-import Reports from './pages/Reports';
-import Vendors from './pages/Vendors';
-import Labour from './pages/Labour';
-import Alerts from './pages/Alerts';
-import Settings from './pages/Settings';
-import Account from './pages/Account';
-import SuperAdmin from './pages/SuperAdmin';
-import VendorPortal from './pages/VendorPortal';
-import LabourPortal from './pages/LabourPortal';
+// Routing. Each role lands on its own app; every screen is a lazy chunk so phones download only what they open.
+import { lazy, Suspense, useEffect } from 'react';
+import { useAuth } from './lib/auth';
+import { useLocation, match, navigate } from './lib/router';
+import { useLang } from './lib/i18n';
+import { Spinner, Skeleton } from './ui/kit';
+
+const Landing = lazy(() => import('./apps/public/Landing'));
+const Login = lazy(() => import('./apps/public/Login'));
+const SuperAdmin = lazy(() => import('./apps/super/SuperAdmin'));
+const VendorApp = lazy(() => import('./apps/vendor/VendorApp'));
+const LabourApp = lazy(() => import('./apps/labour/LabourApp'));
+const Shell = lazy(() => import('./ui/Shell'));
+const Setup = lazy(() => import('./apps/farm/Setup'));
+
+const FARM = {
+  '/': lazy(() => import('./apps/farm/Dashboard')),
+  '/sell': lazy(() => import('./apps/farm/Sell')),
+  '/harvest': lazy(() => import('./apps/farm/Harvest')),
+  '/spend': lazy(() => import('./apps/farm/Spend')),
+  '/reports': lazy(() => import('./apps/farm/Reports')),
+  '/vendors': lazy(() => import('./apps/farm/Vendors')),
+  '/labour': lazy(() => import('./apps/farm/Labour')),
+  '/alerts': lazy(() => import('./apps/farm/Alerts')),
+  '/settings': lazy(() => import('./apps/farm/Settings')),
+  '/account': lazy(() => import('./apps/farm/Account')),
+  '/more': lazy(() => import('./ui/Shell').then((m) => ({ default: m.MorePage }))),
+};
+const ResourcePage = lazy(() => import('./ui/ResourcePage'));
+
+function Redirect({ to }) { useEffect(() => { navigate(to, { replace: true }); }, [to]); return null; }
+
+function FarmRoutes({ pathname, role, meta }) {
+  if (role === 'admin' && !meta.org.settings.setup_done && pathname !== '/setup') return <Redirect to="/setup" />;
+  if (pathname === '/setup') return <Setup />;
+  if (role === 'delivery' && pathname === '/') return <Redirect to="/sell" />;
+  const m = match('/m/:res', pathname);
+  const Page = m ? null : FARM[pathname];
+  if (!m && !Page) return <Redirect to="/" />;
+  return (
+    <Shell>
+      <Suspense fallback={<Skeleton />}>
+        {m ? <ResourcePage key={m.res} resKey={m.res} /> : <Page />}
+      </Suspense>
+    </Shell>
+  );
+}
 
 export default function App() {
   const { meta, loading, role } = useAuth();
+  const { pathname } = useLocation();
+  useLang();
   if (loading) return <Spinner />;
-  if (!meta) return <Routes><Route path="*" element={<Login />} /></Routes>;
 
-  if (role === 'superadmin') return <Routes><Route path="*" element={<SuperAdmin />} /></Routes>;
-  if (role === 'vendor') return <Routes><Route path="*" element={<VendorPortal />} /></Routes>;
-  if (role === 'labour') return <Routes><Route path="*" element={<LabourPortal />} /></Routes>;
+  let view;
+  if (!meta) view = pathname === '/login' ? <Login /> : pathname === '/' ? <Landing /> : <Redirect to="/login" />;
+  else if (pathname === '/welcome') view = <Landing />;
+  else if (pathname === '/login') view = <Redirect to="/" />;
+  else if (role === 'superadmin') view = <SuperAdmin />;
+  else if (role === 'vendor') view = <VendorApp />;
+  else if (role === 'labour') view = <LabourApp />;
+  else view = <FarmRoutes pathname={pathname} role={role} meta={meta} />;
 
-  return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={role === 'delivery' ? <Navigate to="/sell" replace /> : <Dashboard />} />
-        <Route path="sell" element={<Sell />} />
-        <Route path="harvest" element={<Harvest />} />
-        <Route path="spend" element={<Spend />} />
-        <Route path="reports" element={<Reports />} />
-        <Route path="vendors" element={<Vendors />} />
-        <Route path="labour" element={<Labour />} />
-        <Route path="alerts" element={<Alerts />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="account" element={<Account />} />
-        <Route path="more" element={<MorePage />} />
-        <Route path="m/:res" element={<ResourcePage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
-  );
+  return <Suspense fallback={<Spinner />}>{view}</Suspense>;
 }

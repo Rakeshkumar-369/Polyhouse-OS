@@ -1,30 +1,20 @@
-// Polyhouse OS API server - entry point
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env'), quiet: true });
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
+// Polyhouse OS server - entry point. Prepares the database, then starts listening.
+const env = require('./env');
+const { ensureSchema } = require('./migrate');
+const app = require('./app');
+const { one } = require('./db');
 
-const app = express();
-app.use(cors());
-app.use(express.json({ limit: '2mb' }));
-
-app.get('/api/health', (req, res) => res.json({ ok: true }));
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/super', require('./routes/superadmin'));
-app.use('/api', require('./routes/settings'));
-app.use('/api/ops', require('./routes/ops'));
-app.use('/api/portal', require('./routes/portal'));
-app.use('/api', require('./routes/reports'));
-app.use('/api', require('./routes/crud'));
-app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
-
-// Serve the built React app (client/dist) in production
-const dist = path.join(__dirname, '..', '..', 'client', 'dist');
-if (fs.existsSync(dist)) {
-  app.use(express.static(dist));
-  app.get('*', (req, res) => res.sendFile(path.join(dist, 'index.html')));
-}
-
-const port = Number(process.env.PORT || 4000);
-app.listen(port, () => console.log(`Polyhouse OS API on http://localhost:${port}`));
+(async () => {
+  try {
+    await ensureSchema();
+    // SEED_DEMO=true -> load the demo farm once on an empty database (used by docker compose)
+    if (String(process.env.SEED_DEMO).toLowerCase() === 'true' && !(await one('SELECT id FROM organizations LIMIT 1'))) {
+      require('child_process').execFileSync(process.execPath, [require('path').join(__dirname, 'seed.js'), '--demo'], { stdio: 'inherit' });
+    }
+  } catch (e) {
+    console.error('Database not reachable:', e.message);
+    console.error('Check DB_HOST / DB_USER / DB_PASSWORD / DB_NAME (or DATABASE_URL) and DB_SSL in your environment.');
+    process.exit(1);
+  }
+  app.listen(env.PORT, () => console.log(`Polyhouse OS running on http://localhost:${env.PORT}`));
+})();
