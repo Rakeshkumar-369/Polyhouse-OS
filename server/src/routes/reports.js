@@ -4,13 +4,15 @@ const { q, one } = require('../db');
 const { auth, allow, moduleOn, isOn } = require('../middleware/auth');
 const { MANAGERS, FIELD } = require('../config');
 const S = require('../reportService');
+const { suggestions } = require('../suggestionsService');
 const { today, addDays, activeLocks } = require('../resources');
 const { postDueRecurring, produceStock } = require('./ops');
-const { wrap } = require('./crud');
+const { wrap, isDate } = require('./crud');
 
 router.use(auth);
 
 const range = (req) => {
+  for (const k of ['from', 'to', 'date']) if (req.query[k] && !isDate(req.query[k])) throw Object.assign(new Error(`${k}: invalid date`), { status: 400 });
   const to = req.query.to || today();
   const from = req.query.from || addDays(to, -29);
   return { from, to, farm: req.query.farm_id || null, group: ['day', 'week', 'month'].includes(req.query.group) ? req.query.group : 'day' };
@@ -50,6 +52,7 @@ router.get('/dashboard', allow(FIELD), wrap(async (req, res) => {
   res.json({
     role: 'owner', summary: cur, prev: prev.totals, insights: await S.insights(o, cur), finding: S.finding(cur, prev, o.settings.currency),
     alerts: isOn(o, 'alerts') ? await S.alerts(o) : [], today: todayBox, setup,
+    suggestions: isOn(o, 'suggestions') ? (await suggestions(o)).suggestions.filter((x) => x.type !== 'learning').slice(0, 4) : [],
   });
 }));
 
@@ -66,6 +69,7 @@ router.get('/reports/pnl', allow(MANAGERS), moduleOn('finance'), wrap(async (req
 }));
 
 router.get('/reports/balance', allow(MANAGERS), moduleOn('finance'), wrap(async (req, res) => {
+  range(req);
   res.json(await S.balance(req.org, req.query.date || today()));
 }));
 
@@ -99,6 +103,7 @@ async function vendorStatement(p, from, to) {
 
 // Everything entered on one day
 router.get('/reports/daybook', allow(MANAGERS), wrap(async (req, res) => {
+  range(req);
   const d = req.query.date || today(); const o = req.org.id;
   res.json({
     date: d,
@@ -107,6 +112,11 @@ router.get('/reports/daybook', allow(MANAGERS), wrap(async (req, res) => {
     expenses: await q('SELECT e.*, c.name category, p.name party FROM expenses e JOIN expense_categories c ON c.id=e.category_id LEFT JOIN parties p ON p.id=e.party_id WHERE e.org_id=? AND e.date=?', [o, d]),
     payments: await q('SELECT r.*, p.name party FROM payments_received r JOIN parties p ON p.id=r.party_id WHERE r.org_id=? AND r.date=?', [o, d]),
   });
+}));
+
+// Smart suggestions learned from past harvest, temperature and price (suggestionsService.js)
+router.get('/suggestions', allow(FIELD), moduleOn('suggestions'), wrap(async (req, res) => {
+  res.json(await suggestions(req.org));
 }));
 
 router.get('/alerts', allow(FIELD), wrap(async (req, res) => {

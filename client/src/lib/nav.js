@@ -12,7 +12,24 @@ export const MAIN = [
   { to: '/reports', label: 'Reports', icon: 'graph-up-arrow', roles: OWN },
   { to: '/vendors', label: 'Vendors', icon: 'shop', roles: OWN, module: 'sales' },
   { to: '/labour', label: 'Labour', icon: 'people', roles: FIELD, module: 'labour' },
+  { to: '/suggestions', label: 'Smart suggestions', icon: 'lightbulb', roles: FIELD, module: 'suggestions' },
   { to: '/alerts', label: 'Alerts', icon: 'bell', roles: FIELD, module: 'alerts' },
+];
+
+// The "+" quick-entry sheet: every everyday record in one place
+export const QUICK = [
+  { to: '/sell', label: 'Sale', icon: 'truck', roles: STAFF, module: 'sales' },
+  { to: '/harvest', label: 'Harvest', icon: 'basket', roles: STAFF, module: 'harvest' },
+  { to: '/spend', label: 'Expense', icon: 'wallet2', roles: FIELD, module: 'expenses' },
+  { to: '/m/payments_received?new=1', label: 'Payment received', icon: 'cash-coin' },
+  { to: '/labour', label: 'Attendance', icon: 'people', roles: FIELD, module: 'labour' },
+  { to: '/m/orders?new=1', label: 'Vendor order', icon: 'cart-check' },
+  { to: '/m/tasks?new=1', label: 'Task', icon: 'check2-square' },
+  { to: '/m/fertigation_logs?new=1', label: 'EC / pH', icon: 'droplet-half' },
+  { to: '/m/climate_logs?new=1', label: 'Temperature', icon: 'thermometer-half' },
+  { to: '/m/scouting_logs?new=1', label: 'Pest check', icon: 'bug' },
+  { to: '/m/spray_logs?new=1', label: 'Spray', icon: 'moisture' },
+  { to: '/m/stock_moves?new=1', label: 'Stock use', icon: 'box-arrow-up' },
 ];
 
 export const GROUPS = [
@@ -67,7 +84,7 @@ export const GROUPS = [
 export function visible(item, meta, role) {
   if (item.roles && !item.roles.includes(role)) return false;
   if (item.module && meta?.org && meta.org.settings.modules[item.module] === false) return false;
-  if (item.to.startsWith('/m/')) return !!meta?.resources?.[item.to.slice(3)];
+  if (item.to.startsWith('/m/')) { const r = meta?.resources?.[item.to.slice(3).split('?')[0]]; return !!r && (!item.to.includes('new=1') || r.canWrite); }
   return true;
 }
 

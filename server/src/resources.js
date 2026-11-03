@@ -151,7 +151,7 @@ const R = {
       { name: 'address', label: 'Address', type: 'text' },
       { name: 'gstin', label: 'GSTIN', type: 'text' },
       { name: 'credit_days', label: 'Credit days', type: 'number', default: 0, list: true },
-      { name: 'opening_balance', label: 'Opening balance (they owe us)', type: 'number', default: 0 },
+      { name: 'opening_balance', label: 'Opening balance (they owe us)', type: 'number', default: 0, allowNegative: true, help: 'Negative if you owe them / they paid in advance' },
       { name: 'notes', label: 'Notes', type: 'textarea' },
       { name: 'active', label: 'Active', type: 'bool', default: 1 },
     ],
@@ -234,6 +234,8 @@ const R = {
     hooks: {
       async before(d, ctx) {
         if (ctx.op === 'create') d.delivered_by = ctx.user.id;
+        // Only the owner / manager may set a price by hand; everyone else gets the vendor price list
+        if (!MANAGERS.includes(ctx.user.role)) delete d.rate;
         if (d.rate === undefined && ctx.existing) d.rate = ctx.existing.rate;
         if (d.rate === null || d.rate === undefined || d.rate === '' || Number(d.rate) === 0) {
           const cur = ctx.existing || {};
@@ -242,6 +244,7 @@ const R = {
         }
         const qty = Number(d.quantity ?? ctx.existing?.quantity ?? 0);
         const rej = Number(d.rejected_qty ?? ctx.existing?.rejected_qty ?? 0);
+        if (rej > qty) throw Object.assign(new Error('Rejected quantity cannot be more than the quantity delivered'), { status: 400 });
         d.amount = Math.round((qty - rej) * Number(d.rate) * 100) / 100;
       },
       async after(id, d, ctx) {
@@ -299,8 +302,8 @@ const R = {
     fields: [
       { name: 'date', label: 'Date', type: 'date', default: 'today', required: true, list: true },
       { name: 'item_id', label: 'Item', type: 'ref', ref: 'inventory_items', required: true, list: true },
-      { name: 'type', label: 'Movement', type: 'select', options: ['out', 'in', 'adjust'], default: 'out', list: true, help: 'Purchases come in automatically from Expenses' },
-      { name: 'quantity', label: 'Quantity', type: 'number', required: true, list: true },
+      { name: 'type', label: 'Movement', type: 'select', options: ['out', 'in', 'adjust'], default: 'out', list: true, help: 'Purchases come in automatically from Expenses. Adjust: use a minus figure to reduce stock' },
+      { name: 'quantity', label: 'Quantity', type: 'number', required: true, list: true, allowNegative: true },
       { name: 'farm_id', label: 'Used at farm', type: 'ref', ref: 'farms', list: true },
       { name: 'crop_cycle_id', label: 'Crop cycle', type: 'ref', ref: 'crop_cycles', module: 'crop_cycles' },
       { name: 'notes', label: 'Notes', type: 'text' },
@@ -332,6 +335,8 @@ const R = {
         if (ctx.op === 'create') d.created_by = ctx.user.id;
         if ((d.amount === null || d.amount === undefined || d.amount === '') && d.quantity && d.rate) d.amount = Number(d.quantity) * Number(d.rate);
         if (ctx.op === 'create' && (d.amount === null || d.amount === undefined || d.amount === '')) throw Object.assign(new Error('Enter amount (or quantity and rate)'), { status: 400 });
+        const amt = Number(d.amount ?? ctx.existing?.amount); const paid = d.paid_amount !== undefined ? d.paid_amount : ctx.existing?.paid_amount;
+        if (paid !== null && paid !== undefined && Number(paid) > amt) throw Object.assign(new Error('Paid amount cannot be more than the bill amount'), { status: 400 });
       },
       async after(id, d, ctx, op) {
         await q('DELETE FROM stock_moves WHERE org_id=? AND expense_id=?', [ctx.org.id, id]);
@@ -420,6 +425,7 @@ const R = {
       async before(d, ctx) {
         const c = { ...(ctx.existing || {}), ...d };
         d.net_paid = Number(c.gross || 0) + Number(c.bonus || 0) - Number(c.deductions || 0);
+        if (d.net_paid < 0) throw Object.assign(new Error('Deductions cannot be more than gross pay + bonus'), { status: 400 });
       },
       async after(id, d, ctx, op) {
         if (op === 'delete') return syncLinkedExpense(ctx.org.id, 'wage_payment_id', id, null);
@@ -483,7 +489,7 @@ const R = {
       { name: 'date', label: 'Date', type: 'date', default: 'today', required: true, list: true },
       { name: 'time', label: 'Time', type: 'time', list: true },
       { name: 'farm_id', label: 'Farm', type: 'ref', ref: 'farms', required: true, list: true },
-      { name: 'temperature', label: 'Temperature (°C)', type: 'number', list: true },
+      { name: 'temperature', label: 'Temperature (°C)', type: 'number', list: true, allowNegative: true },
       { name: 'humidity', label: 'Humidity (%)', type: 'number', list: true },
       { name: 'notes', label: 'Notes', type: 'text' },
     ],

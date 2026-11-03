@@ -8,6 +8,13 @@ const { ensureSchema } = require('./migrate');
 
 const day = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
 const rnd = (a, b) => Math.round((a + Math.random() * (b - a)) * 10) / 10;
+// Average midday temperature inside a Telangana polyhouse by month (Jan..Dec) - drives the history so the
+// smart-suggestions engine has real seasons to learn from (e.g. lettuce does best in the cool months).
+const MONTH_TEMP = [24, 27, 31, 34, 36, 32, 29, 28, 28, 27, 24, 22];
+const MONTH_HUM = [55, 50, 45, 42, 45, 70, 80, 82, 78, 70, 62, 58];
+const tempOn = (d) => MONTH_TEMP[Number(d.slice(5, 7)) - 1];
+// 0..1 how well a crop likes a temperature (bell curve around its best temperature)
+const fit = (t, best, width) => Math.exp(-((t - best) ** 2) / (2 * width ** 2));
 
 async function ins(table, row) { const r = await q(`INSERT INTO ${table} SET ?`, [row]); return r.insertId; }
 
@@ -26,10 +33,13 @@ async function ins(table, row) { const r = await q(`INSERT INTO ${table} SET ?`,
   for (const [f, n] of [[f1, 4], [f2, 2]]) for (let i = 1; i <= n; i++) bays.push({ id: await ins('bays', { org_id: o, farm_id: f, name: `Bay ${i}`, area_sqm: 1000 }), farm: f });
 
   const crops = {};
-  for (const [name, variety, price, color] of [['Capsicum', 'Red', 90, '#dc2626'], ['Capsicum', 'Yellow', 95, '#eab308'], ['Cucumber', 'English', 35, '#16a34a'], ['Tomato', 'Cherry', 70, '#f97316']]) {
-    crops[`${name} ${variety}`] = await ins('crops', { org_id: o, name: name === 'Capsicum' ? `Capsicum ${variety}` : name, variety, unit: 'kg', default_price: price, color, target_yield_per_sqm: 10 });
+  for (const [name, variety, price, color, seedVariety] of [['Capsicum', 'Red', 90, '#dc2626', 'Indra'], ['Capsicum', 'Yellow', 95, '#eab308', 'Bachata'], ['Cucumber', 'English', 35, '#16a34a', 'Multistar'], ['Tomato', 'Cherry', 70, '#f97316', 'Cherry'], ['Lettuce', 'Iceberg', 60, '#65a30d', 'Iceberg']]) {
+    crops[`${name} ${variety}`] = await ins('crops', { org_id: o, name: name === 'Capsicum' ? `Capsicum ${variety}` : name, variety: seedVariety, unit: 'kg', default_price: price, color, target_yield_per_sqm: 10 });
   }
-  const cIds = Object.values(crops);
+  const allCrops = Object.values(crops);
+  const lettuce = allCrops[4];
+  const cIds = allCrops.slice(0, 4);
+  const BEST = [[25, 4], [25, 4], [28, 4], [24, 4], [20, 3]]; // best temperature & tolerance per crop (same order as allCrops)
   const cycles = [];
   for (let i = 0; i < 4; i++) cycles.push(await ins('crop_cycles', { org_id: o, farm_id: bays[i].farm, bay_id: bays[i].id, crop_id: cIds[i], name: `${Object.keys(crops)[i]} 2026`, transplant_date: day(140), plants: 2500, area_sqm: 1000, harvest_start: day(70), target_yield_kg: 9000, status: 'harvesting' }));
 
@@ -39,7 +49,7 @@ async function ins(table, row) { const r = await q(`INSERT INTO ${table} SET ?`,
   }
   const sup = await ins('parties', { org_id: o, name: 'Sri Sai Agro Inputs', type: 'supplier', buyer_kind: 'input dealer', phone: '9876500000' });
   const mult = [1.1, 1.2, 0.85, 1.0];
-  for (const [bi, b] of buyers.entries()) for (const c of cIds) {
+  for (const [bi, b] of buyers.entries()) for (const c of allCrops) {
     const base = (await one('SELECT default_price p FROM crops WHERE id=?', [c])).p;
     await ins('price_list', { org_id: o, party_id: b, crop_id: c, grade: 'A', price: Math.round(base * mult[bi]), effective_from: day(90) });
     await ins('price_list', { org_id: o, party_id: b, crop_id: c, grade: 'B', price: Math.round(base * mult[bi] * 0.75), effective_from: day(90) });
@@ -56,23 +66,62 @@ async function ins(table, row) { const r = await q(`INSERT INTO ${table} SET ?`,
   }
   await ins('fertigation_recipes', { org_id: o, crop_id: cIds[0], stage: 'Fruiting', ec_min: 1.8, ec_max: 2.4, ph_min: 5.8, ph_max: 6.4, recipe: 'Calcium nitrate 60 kg, 13-0-45 40 kg, MgSO4 25 kg per 1000 L stock' });
 
+  // ---------- one year of history (13 months back) for seasonal learning ----------
+  const old = [];
+  for (const [i, c] of allCrops.entries()) {
+    const bay = i < 4 ? bays[i] : bays[5];
+    old.push(await ins('crop_cycles', { org_id: o, farm_id: bay.farm, bay_id: bay.id, crop_id: c, name: `${Object.keys(crops)[i]} 2025-26`, transplant_date: day(470), plants: 2500, area_sqm: 1000, harvest_start: day(425), harvest_end: day(150), target_yield_kg: 9000, status: 'closed' }));
+  }
+  const listA = {};
+  for (const c of allCrops) listA[c] = (await one("SELECT price FROM price_list WHERE party_id=? AND crop_id=? AND grade='A'", [buyers[2], c])).price;
+  for (let n = 425; n > 60; n--) {
+    const d = day(n); const t = tempOn(d) + rnd(-2, 2);
+    await ins('climate_logs', { org_id: o, date: d, time: '13:00:00', farm_id: f1, temperature: t, humidity: MONTH_HUM[Number(d.slice(5, 7)) - 1] + rnd(-5, 5) });
+    if (n % 2) continue;
+    for (const [i, c] of allCrops.entries()) {
+      if (n < 150 && i === 4) continue; // lettuce bay was rested before the new crop
+      const f = fit(t, BEST[i][0], BEST[i][1]);
+      const qty = Math.round((i === 2 ? 220 : i === 4 ? 140 : 110) * (0.25 + 0.75 * f) * rnd(0.85, 1.15) * 10) / 10;
+      const bay = i < 4 ? bays[i] : bays[5];
+      await ins('harvests', { org_id: o, date: d, farm_id: bay.farm, bay_id: bay.id, crop_cycle_id: old[i], crop_id: c, grade: f > 0.6 ? 'A' : 'B', quantity: qty, culls: Math.round(qty * (0.02 + 0.08 * (1 - f)) * 10) / 10 });
+      const rate = Math.round(listA[c] * (0.8 + 0.5 * (1 - f)));   // less supply in bad weather -> better price
+      const sold = Math.round(qty * 0.9 * 10) / 10;
+      const b = n % 4 ? buyers[2] : buyers[3];
+      await ins('sales', { org_id: o, date: d, party_id: b, crop_id: c, grade: 'A', farm_id: bay.farm, quantity: sold, rejected_qty: 0, rate, amount: Math.round(sold * rate * 100) / 100, status: 'accepted', delivered_by: 1 });
+    }
+    if (Number(d.slice(8)) <= 2) {
+      // monthly running costs and last month's collections
+      for (const [k, name, amt] of [['rent', 'Land rent', 15000], ['utility', 'Electricity', 6500], ['labour', 'Labour wages', 62000], ['input', 'Fertiliser', 24000], ['transport', 'Transport', 14000]]) {
+        await ins('expenses', { org_id: o, date: d, category_id: await cat(k, name), description: `${name} (monthly)`, farm_id: k === 'utility' ? null : f1, amount: amt, payment_mode: 'bank' });
+      }
+    }
+  }
+  for (const b of [buyers[2], buyers[3]]) {
+    const months = await q('SELECT DATE_FORMAT(date, "%Y-%m") m, SUM(amount) s FROM sales WHERE party_id=? AND date<=? GROUP BY m', [b, day(61)]);
+    for (const m of months) await ins('payments_received', { org_id: o, date: m.m + '-28', party_id: b, amount: Math.round(m.s), mode: 'bank', notes: 'Monthly settlement' });
+  }
+  const lettuceNow = await ins('crop_cycles', { org_id: o, farm_id: f2, bay_id: bays[5].id, crop_id: lettuce, name: 'Lettuce Iceberg 2026-27', transplant_date: day(40), plants: 9000, area_sqm: 1000, harvest_start: day(4), target_yield_kg: 7000, status: 'harvesting' });
+
   const loanId = await ins('loans', { org_id: o, lender: 'SBI Agri Term Loan', principal: 1500000, interest_rate: 9, start_date: '2023-06-01', tenure_months: 84, emi: 24100 });
   await ins('other_income', { org_id: o, date: day(40), source: 'MIDH subsidy instalment', farm_id: f1, amount: 150000 });
   for (let n = 60; n >= 0; n--) {
     const d = day(n);
     // harvest + sales
     for (const [i, c] of cIds.entries()) {
-      const qty = rnd(40, 120) * (i === 2 ? 2 : 1);
-      await ins('harvests', { org_id: o, date: d, farm_id: bays[i].farm, bay_id: bays[i].id, crop_cycle_id: cycles[i], crop_id: c, grade: 'A', quantity: qty, culls: rnd(1, 5), worker_id: workers[2] });
-      const bq = rnd(10, 30);
+      // daily pick follows the same temperature model as the history (about half of a 2-day pick)
+      const f = fit(tempOn(d), BEST[i][0], BEST[i][1]);
+      const day1 = (i === 2 ? 110 : 55) * (0.25 + 0.75 * f) * rnd(0.85, 1.15);
+      const qty = Math.round(day1 * 0.8 * 10) / 10;
+      await ins('harvests', { org_id: o, date: d, farm_id: bays[i].farm, bay_id: bays[i].id, crop_cycle_id: cycles[i], crop_id: c, grade: 'A', quantity: qty, culls: rnd(0.5, 2), worker_id: workers[2] });
+      const bq = Math.round(day1 * 0.2 * 10) / 10;
       await ins('harvests', { org_id: o, date: d, farm_id: bays[i].farm, bay_id: bays[i].id, crop_cycle_id: cycles[i], crop_id: c, grade: 'B', quantity: bq, culls: 0 });
       const bRate = (await one("SELECT price FROM price_list WHERE party_id=? AND crop_id=? AND grade='B'", [buyers[2], c])).price;
       const bSold = Math.round(bq * 0.9 * 10) / 10;
       await ins('sales', { org_id: o, date: d, party_id: buyers[2], crop_id: c, grade: 'B', farm_id: bays[i].farm, quantity: bSold, rejected_qty: 0, rate: bRate, amount: Math.round(bSold * bRate * 100) / 100, status: 'accepted', delivered_by: 1 });
       let left = qty;
       for (const [bi, b] of buyers.entries()) {
-        if (Math.random() < 0.15 || left < 5) continue;
-        const sq = Math.min(left, bi === 3 ? left : rnd(15, 45)); left -= sq;
+        if (Math.random() < 0.15 || left < 3) continue;
+        const sq = Math.round(Math.min(left, bi === 3 ? left : rnd(8, 20)) * 10) / 10; left -= sq;
         const rate = (await one("SELECT price FROM price_list WHERE party_id=? AND crop_id=? AND grade='A'", [b, c])).price;
         const rej = bi === 0 && Math.random() < 0.3 ? rnd(0.5, 3) : 0;
         await ins('sales', { org_id: o, date: d, party_id: b, crop_id: c, grade: 'A', farm_id: bays[i].farm, quantity: sq, rejected_qty: rej, rate, amount: Math.round((sq - rej) * rate * 100) / 100, status: n > 2 ? 'accepted' : 'delivered', delivered_by: 1 });
@@ -82,7 +131,12 @@ async function ins(table, row) { const r = await q(`INSERT INTO ${table} SET ?`,
     for (const w of workers) await ins('attendance', { org_id: o, worker_id: w, date: d, status: Math.random() < 0.9 ? 'present' : 'absent', farm_id: f1 });
     // logs
     await ins('fertigation_logs', { org_id: o, date: d, farm_id: f1, bay_id: bays[0].id, crop_cycle_id: cycles[0], feed_ec: rnd(1.7, 2.3), feed_ph: rnd(5.8, 6.4), drain_ec: rnd(2.0, 2.8), drain_ph: rnd(6, 6.8), water_litres: 4000 });
-    await ins('climate_logs', { org_id: o, date: d, time: '13:00:00', farm_id: f1, temperature: rnd(24, 31), humidity: rnd(55, 85) });
+    await ins('climate_logs', { org_id: o, date: d, time: '13:00:00', farm_id: f1, temperature: tempOn(d) + rnd(-2, 2.5), humidity: MONTH_HUM[Number(d.slice(5, 7)) - 1] + rnd(-6, 8) });
+    if (n <= 4) {
+      const lq = rnd(55, 75);
+      await ins('harvests', { org_id: o, date: d, farm_id: f2, bay_id: bays[5].id, crop_cycle_id: lettuceNow, crop_id: lettuce, grade: 'A', quantity: lq, culls: rnd(1, 4) });
+      await ins('sales', { org_id: o, date: d, party_id: buyers[3], crop_id: lettuce, grade: 'A', farm_id: f2, quantity: Math.round((lq - 3) * 10) / 10, rejected_qty: 0, rate: 60, amount: Math.round((lq - 3) * 600) / 10, status: 'delivered', delivered_by: 1 });
+    }
     if (n % 3 === 0) await ins('scouting_logs', { org_id: o, date: d, farm_id: f1, bay_id: bays[n % 4].id, pest: ['Thrips', 'Whitefly', 'Mites'][n % 3], trap_count: Math.floor(rnd(10, 70)), severity: 'low' });
     if (n % 6 === 0) {
       const amt = rnd(8000, 20000);

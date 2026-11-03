@@ -11,7 +11,7 @@ const monthStart = today.slice(0, 8) + '01';
 async function call(token, method, url, body, expect = 200) {
   const res = await fetch(BASE + url, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body: body ? JSON.stringify(body) : undefined });
   const data = await res.json().catch(() => ({}));
-  const ok = res.status === expect;
+  const ok = [].concat(expect).includes(res.status);
   if (ok) pass++; else { fail++; console.log(`FAIL ${method} ${url} -> ${res.status} (expected ${expect}) ${data.error || ''}`); }
   return data;
 }
@@ -25,7 +25,7 @@ const login = async (l, p) => (await call(null, 'POST', '/auth/login', { login: 
     await call(owner, 'GET', `/r/${r}`, null);
     await call(owner, 'GET', `/r/${r}/options`, null);
   }
-  for (const u of ['/dashboard', '/alerts', '/reports/receivables', '/reports/daybook', '/settings', '/users', '/ops/produce-stock', '/ops/locks', '/ops/attendance-sheet'])
+  for (const u of ['/dashboard', '/alerts', '/suggestions', '/reports/receivables', '/reports/daybook', '/settings', '/users', '/ops/produce-stock', '/ops/locks', '/ops/attendance-sheet'])
     await call(owner, 'GET', u);
   for (const g of ['day', 'week', 'month']) await call(owner, 'GET', `/reports/summary?from=2026-01-01&to=${today}&group=${g}`);
   await call(owner, 'GET', `/reports/pnl?from=${monthStart}&to=${today}`);
@@ -56,7 +56,7 @@ const login = async (l, p) => (await call(null, 'POST', '/auth/login', { login: 
     const mine = vp.lines.find((l) => l.kind === 'sale' && l.status === 'delivered');
     if (mine) await call(ven, 'PUT', `/portal/vendor/sales/${mine.id}`, { rejected_qty: 0 });
     await call(ven, 'POST', '/portal/vendor/orders', { crop_id: crops[0].id, quantity: 10, date: today });
-    await call(lab, 'POST', '/portal/labour/checkin', null, 200);
+    await call(lab, 'POST', '/portal/labour/checkin', null, [200, 400]); // 400 = already checked out today
     await call(null, 'POST', '/public/demo-request', { name: 'Smoke Test', phone: '9000000000' });
     await call(owner, 'POST', '/r/sales', { party_id: vendors[0].id, quantity: 1 }, 400); // missing crop -> validation
   }

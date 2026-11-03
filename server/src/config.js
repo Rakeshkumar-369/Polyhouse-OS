@@ -27,6 +27,7 @@ const MODULES = [
   { key: 'loans', label: 'Loans & EMI', group: 'Decide', desc: 'Loan tracker with repayments' },
   { key: 'assets', label: 'Assets & maintenance', group: 'Decide', desc: 'Structure, polyfilm, pumps - depreciation & service due' },
   { key: 'documents', label: 'Document vault', group: 'Decide', desc: 'Land, lease, subsidy, loan papers & photos' },
+  { key: 'suggestions', label: 'Smart suggestions', group: 'Decide', desc: 'Learns from past seasons: best months, best temperature range, when to plant, price peaks' },
   { key: 'alerts', label: 'Alerts', group: 'Decide', desc: 'Exceptions that need action today' },
 ];
 

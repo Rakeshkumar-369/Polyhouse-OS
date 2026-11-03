@@ -4,9 +4,12 @@ Polyhouse OS is a complete, mobile-first platform for growers: one **Farm OS** t
 
 It is built from the *Polyhouse Industry Problems & Product Blueprint*: every module exists because a problem costs a grower money, and every screen shows the number it moves (yield per m², price realised per kg, cost per kg, days to collect, labour cost per kg, rejection %).
 
+There is a **web app** (works on any phone or computer browser) and a **Flutter mobile app** for Android and iOS — both use the same server, so an entry on one shows on the other at once. A **smart suggestions** engine learns from the farm's own seasons — *"Lettuce did best in Dec 2025 at 21.9 °C; transplant in Nov"* — and tells the owner what to plan next year.
+
 It is sold to five kinds of customers: **one-polyhouse owners, crop-field owners, owners with many polyhouses, Farmer Producer Organisations (FPOs) and farmers with land at different places.**
 
 > **Stack:** React 18 + Vite + Tailwind CSS (no UI library, 60-line router, hand-written SVG charts, inline Bootstrap Icons) · Node.js + Express · MySQL 8
+> **Mobile:** Flutter 3 (Android / iOS) — same API, same logins
 > **Languages:** English and తెలుగు (switch on any screen) · **No payment gateway needed** — money is recorded as line entries.
 
 ---
@@ -14,18 +17,22 @@ It is sold to five kinds of customers: **one-polyhouse owners, crop-field owners
 ## Contents
 
 1. [Quick start (local)](#1-quick-start-local)
-2. [Demo logins](#2-demo-logins)
-3. [The apps](#3-the-apps)
-4. [Onboarding a new customer (2 minutes)](#4-onboarding-a-new-customer-2-minutes)
-5. [Guided 10-minute demo](#5-guided-10-minute-demo)
-6. [Blueprint → module map](#6-blueprint--module-map)
-7. [Free hosting — go live today](#7-free-hosting--go-live-today)
-8. [Architecture & performance](#8-architecture--performance)
-9. [Project structure](#9-project-structure)
-10. [API overview](#10-api-overview)
-11. [Scripts & testing](#11-scripts--testing)
-12. [Configuration (.env)](#12-configuration-env)
-13. [Roadmap](#13-roadmap)
+2. [Build commands at a glance](#2-build-commands-at-a-glance)
+3. [Demo logins](#3-demo-logins)
+4. [The apps](#4-the-apps)
+5. [Smart suggestions](#5-smart-suggestions)
+6. [Mobile app (Flutter)](#6-mobile-app-flutter)
+7. [Onboarding a new customer (2 minutes)](#7-onboarding-a-new-customer-2-minutes)
+8. [Guided 10-minute demo](#8-guided-10-minute-demo)
+9. [Blueprint → module map](#9-blueprint--module-map)
+10. [Free hosting — go live today](#10-free-hosting--go-live-today)
+11. [Architecture & performance](#11-architecture--performance)
+12. [Project structure](#12-project-structure)
+13. [API overview](#13-api-overview)
+14. [Scripts & testing](#14-scripts--testing)
+15. [Configuration (.env)](#15-configuration-env)
+16. [Documentation](#16-documentation)
+17. [Roadmap](#17-roadmap)
 
 ---
 
@@ -81,7 +88,33 @@ Demo data is generated **relative to today** (60 days of history), so dashboards
 
 ---
 
-## 2. Demo logins
+## 2. Build commands at a glance
+
+Run these from the project folder. ✔ = needed once, ↻ = every time you change code.
+
+| Goal | Commands |
+|---|---|
+| ✔ Install everything (server + web app) | `npm install` |
+| ✔ Create the settings file | `cp .env.example .env` (Windows: `copy .env.example .env`) and edit the `DB_*` lines |
+| ✔ Create the database with demo data | `npm run db:reset` (empty database instead: `node server/src/reset.js --no-seed`) |
+| Develop with live reload | `npm run dev` → web http://localhost:5173, API http://localhost:4000 |
+| ↻ Build the web app for production | `npm run build` (writes `client/dist`) |
+| Run in production | `npm start` → http://localhost:4000 (serves the API **and** the built web app) |
+| Test the server (API) | `npm test` — runs `npm run smoke` (≈110 checks) and `npm run scenarios` (≈53 edge cases). The server must be running. |
+| One-command server with MySQL (Docker) | `docker compose up -d --build` (demo data: `SEED_DEMO=true DEMO_MODE=true docker compose up -d --build`) |
+| ✔ Mobile: get packages | `cd mobile && flutter pub get` |
+| Mobile: test | `cd mobile && flutter analyze && flutter test` |
+| Mobile: run on a connected phone / emulator | `cd mobile && flutter run --dart-define=API_URL=http://<your-PC-IP>:4000` |
+| ↻ Mobile: Android APK to share on WhatsApp | `cd mobile && flutter build apk --release --dart-define=API_URL=https://your-site.onrender.com` → `mobile/build/app/outputs/flutter-apk/app-release.apk` |
+| Mobile: Play Store bundle | `cd mobile && flutter build appbundle --release --dart-define=API_URL=https://your-site.onrender.com` |
+| Mobile: iPhone (needs a Mac + Xcode) | `cd mobile && flutter build ipa --release --dart-define=API_URL=https://your-site.onrender.com` |
+| Mobile: browser build (optional) | `cd mobile && flutter build web --release --dart-define=API_URL=https://your-site.onrender.com` |
+
+`API_URL` only pre-fills the server address on the login screen; users can change it there, so one APK works for every customer on the same server.
+
+---
+
+## 3. Demo logins
 
 The login page shows one-tap buttons for all of these when `DEMO_MODE=true`.
 
@@ -96,26 +129,69 @@ The login page shows one-tap buttons for all of these when `DEMO_MODE=true`.
 
 ### What the demo data contains
 
-2 polyhouses (one leased) with 6 bays · 4 crops (Capsicum Red & Yellow, English Cucumber, Cherry Tomato) in running crop cycles · 4 buyers with different prices and credit terms (a retail chain that rejects a little, a hotel that pays late, a mandi agent who buys B grade, a B2B aggregator) and 1 input supplier · ~1,000 sales and ~500 harvest entries · 5 workers (daily, monthly and per-kg pay) with attendance, weekly wage payments and an advance · fertiliser, transport, rent, electricity, salary and loan EMI expenses · stock purchases on credit · EC/pH, climate and scouting logs · an active spray lock · a subsidy instalment · assets with a polyfilm due for replacement · a vendor order waiting · 2 demo leads.
+2 polyhouses (one leased) with 6 bays · 5 crops (Capsicum Red & Yellow, English Cucumber, Cherry Tomato, Iceberg Lettuce) in running crop cycles · **14 months of history** (harvest, price and a daily temperature log that follows Telangana's seasons) so smart suggestions have real seasons to learn from · 4 buyers with different prices and credit terms (a retail chain that rejects a little, a hotel that pays late, a mandi agent who buys B grade, a B2B aggregator) and 1 input supplier · ~1,900 sales and ~1,400 harvest entries · 5 workers (daily, monthly and per-kg pay) with attendance, weekly wage payments and an advance · fertiliser, transport, rent, electricity, salary and loan EMI expenses · stock purchases on credit · EC/pH, climate and scouting logs · an active spray lock · a subsidy instalment · assets with a polyfilm due for replacement · a vendor order waiting · 2 demo leads.
 
-The simulation is shaped so the insights mean something: the hotel pays the best price but is badly overdue, drain EC creeps up in Polyhouse 1 (salt build-up alert), calcium nitrate is running low, and one polyhouse bay is locked for harvest after a spray.
+The simulation is shaped so the insights mean something: each crop yields best near its ideal temperature (lettuce in the cool Nov–Jan months, cucumber in the warm Aug–Oct months, everything struggles in May at 36 °C, when prices peak), the hotel pays the best price but is badly overdue, drain EC creeps up in Polyhouse 1 (salt build-up alert), calcium nitrate is running low, and one polyhouse bay is locked for harvest after a spray.
 
 ---
 
-## 3. The apps
+## 4. The apps
 
 | App | URL | For | Highlights |
 |---|---|---|---|
 | **Website** | `/` | Prospects | Problem → module → number, who it's for, one login per person, plans, **Request a demo** form (lands in Super admin → Leads) |
-| **Farm OS** | `/` after login | Owner, manager, supervisor, delivery | Dashboard with a one-line finding, KPIs vs previous period, sales vs expenses, cost vs price by crop, price trend, ageing of dues, best-paying vendor per crop, crop cycles vs target, best selling days, labour; **Sell**, **Harvest**, **Spend** quick-entry screens; Reports; Vendors; Labour; Alerts; 30 list screens; Settings with **module on/off toggles** |
+| **Farm OS** | `/` after login | Owner, manager, supervisor, delivery | Dashboard with a one-line finding, **smart suggestions**, KPIs vs previous period, sales vs expenses, cost vs price by crop, price trend, ageing of dues, best-paying vendor per crop, crop cycles vs target, best selling days, labour; **Sell**, **Harvest**, **Spend** quick-entry screens; Reports; Vendors; Labour; Smart suggestions with season calendar; Alerts; 30 list screens; Settings with **module on/off toggles**. One **+ New entry** button (centre of the phone tab bar) for every daily record; menu groups fold away; back button and screen search on phones |
 | **Setup wizard** | `/setup` | New owner (first login) | 5 steps: farm (acres, L×W×H, rent) → crops → vendors & their prices → workers & pay + monthly bills → start. Every step skippable |
 | **Vendor app** | `/` as vendor | Buyers | Deliveries with confirm / report rejected qty, statement with running balance, dues & overdue, today's prices, place / cancel orders |
 | **Labour app** | `/` as labour | Workers | Big check-in / check-out button, "do not enter" spray warning, earnings this week and month, tasks, 4-week attendance calendar, payslips — in Telugu |
+| **Mobile app** | Android / iOS (`mobile/`) | Everyone | Same logins and data as the web app — see [section 6](#6-mobile-app-flutter) |
 | **Platform** | `/` as super admin | You | Create customer + admin login in one form, **send the login on WhatsApp**, open any customer to set it up for them, reset password, suspend, leads from the website |
 
 ---
 
-## 4. Onboarding a new customer (2 minutes)
+## 5. Smart suggestions
+
+**Smart suggestions** (menu → *Smart suggestions*, and the top of the dashboard) learn from the farm's **own history**: every month it compares each crop's yield (kg per m² per month, using the crop cycle's area), the **average temperature and humidity** recorded in the climate log that month, and the **price** realised. Then it says, in plain words:
+
+| Kind | Example |
+|---|---|
+| **This month** | *Cucumber: cooler than it likes — average so far 24.8 °C; it did best at 27–28 °C. Close side curtains at night.* |
+| **Next month** | *Dec: Lettuce did 132% better last year (1.7 kg/m² at 21.9 °C). Line up buyers and pickers.* |
+| **Best season** | *Lettuce grows best in Jan, Feb, Nov, Dec — best in Dec 2025 at 21.9 °C. To be picking in Dec, transplant in Nov (about 41 days to first harvest).* |
+| **Price** | *May fetches the best prices — Capsicum Red ₹99 (+26%) … supply is low.* |
+| **Weak month** | *May is the weakest month for Capsicum, Cucumber, Tomato — yields fell ~60% at 36 °C.* |
+
+A **season calendar** shows every crop × month as a colour (green = best months) with the average temperature underneath. Suggestions for a crop start after **4 months** of harvest records and grow more confident with 6 and 10+ months. The logic is in `server/src/suggestionsService.js`; the more consistently the farm records daily harvest by bay, a daily temperature reading and crop cycles with area, the sharper it gets. The demo data contains 14 months of history, so the demo shows the full picture.
+
+---
+
+## 6. Mobile app (Flutter)
+
+The `mobile/` folder is a Flutter app for **Android and iOS** with the same logins and data as the web app.
+
+| Who | What they get on the phone |
+|---|---|
+| Owner / manager | Dashboard (one-line finding, KPIs, smart suggestions, sales vs expenses, alerts, crops, dues ageing, best vendor), Sell, Harvest, Spend, Reports (overview, crops, vendors, expenses, P&L, balance sheet), Vendors (statement, record payment, WhatsApp reminder, prices), Labour (attendance, wage run & pay), Smart suggestions with season calendar, **every one of the 30 record lists with add / edit / delete**, Settings (modules on/off, team logins with WhatsApp share) |
+| Supervisor | Today view, Harvest, Sell, Attendance, crop logs (EC/pH, temperature, scouting, sprays, tasks) |
+| Delivery | Sell (price auto-filled from the vendor's price list) and Harvest |
+| Vendor | Deliveries to confirm / reject, statement, prices, place and cancel orders |
+| Labour | One big Check-in / Check-out button, spray warnings, earnings, tasks, attendance calendar, payslips |
+| Super admin | Customers, create customer + admin login (WhatsApp share), leads |
+
+Design: Material 3 in the brand green, big tap targets, chip pickers instead of typing, a **+** button for every daily entry, bottom tabs that depend on the role, *More* with search for everything else, pull-to-refresh, English ⇄ తెలుగు in the top bar.
+
+**Install on Android without the Play Store**
+1. Install Flutter (https://docs.flutter.dev/get-started/install) and Android Studio (for the Android SDK). Check with `flutter doctor`.
+2. `cd mobile && flutter build apk --release --dart-define=API_URL=https://your-site.onrender.com`
+3. Send `mobile/build/app/outputs/flutter-apk/app-release.apk` on WhatsApp / Drive; on the phone allow *Install unknown apps* and open it.
+
+**Publish on Play Store / App Store** — set your own package name in `mobile/android/app/build.gradle.kts` (`applicationId`) and signing keys (Flutter guide: *Build and release an Android app*), then upload the `appbundle`. For iPhone, open `mobile/ios/Runner.xcworkspace` in Xcode on a Mac, set your Apple team, and run `flutter build ipa`.
+
+**Local testing tip:** phone and PC on the same Wi-Fi → run the server with `npm start`, find the PC's IP (`ipconfig` / `ip addr`), enter `http://<PC-IP>:4000` as the server address on the login screen. (The Android emulator reaches the PC at `http://10.0.2.2:4000`.)
+
+---
+
+## 7. Onboarding a new customer (2 minutes)
 
 1. Log in as **super admin** → **New customer + admin login**.
 2. Pick the customer type (single polyhouse / crop field / many polyhouses / FPO / land at many places) — this switches on the right modules.
@@ -126,7 +202,7 @@ The simulation is shaped so the insights mean something: the hotel pays the best
 
 ---
 
-## 5. Guided 10-minute demo
+## 8. Guided 10-minute demo
 
 1. **Website** → `http://localhost:5173` → scroll to *Request a free demo* → submit.
 2. **Super admin** → *Leads* shows the request → **Create account** pre-fills the form from the lead → create → *Send on WhatsApp*.
@@ -139,10 +215,12 @@ The simulation is shaped so the insights mean something: the hotel pays the best
 9. **Vendor (vendor1)** → confirm a delivery and report 2 kg rejected → the owner's amount and rejection % update.
 10. **Labour (labour1)** → switch to తెలుగు → *Check in*.
 11. **Settings → Modules on/off** → turn off *Labour & wages* → its screens disappear for everyone; turn it back on.
+12. **Smart suggestions** → the season calendar shows lettuce green in Nov–Jan and red in May–Jun; read *Next month* and *Best season*.
+13. **Mobile** → `cd mobile && flutter run` → log in as `delivery1` → tap a crop, a vendor, type the quantity → *Save sale* → it appears on the owner's web dashboard.
 
 ---
 
-## 6. Blueprint → module map
+## 9. Blueprint → module map
 
 | Problem (blueprint) | Module | Where in the app | Number it moves |
 |---|---|---|---|
@@ -159,11 +237,12 @@ The simulation is shaped so the insights mean something: the hotel pays the best
 | Replacement cycles unplanned | Asset life and replacement alerts (e.g. polyfilm) | Assets · Alerts | Replacement fund |
 | Absentee owner | One-line finding, KPI home, alerts, supervisor & delivery logins | Dashboard · Alerts | Problems caught within 24 hours |
 | Subsidy and audit paperwork | Document vault with expiry alerts, other income (subsidy) | Documents · Other income | Hours on paperwork |
+| Planting by habit; repeating weak seasons | Smart suggestions learned from the farm's own yield, temperature and price by month; season calendar | Smart suggestions · Dashboard | Yield per m² in the season |
 | FPO / multi-location reporting | Farms with member name and location, farm-wise P&L and profit per acre | Reports → Farms | Profit per acre |
 
 ---
 
-## 7. Free hosting — go live today
+## 10. Free hosting — go live today
 
 Two free paths are documented. **A** is the quickest; **B** never sleeps.
 
@@ -187,7 +266,7 @@ Two free paths are documented. **A** is the quickest; **B** never sleeps.
    (`JWT_SECRET` is generated automatically, `DB_SSL=true` is preset.)
 3. Click **Apply**. The first build takes 3–5 minutes.
 4. Open `https://polyhouse-os.onrender.com` (your URL is shown on Render) → **Log in** with `superadmin` and your password.
-5. Create your first customer (section 4) and send them the login. **Done.**
+5. Create your first customer (section 7) and send them the login. **Done.**
 
 *(Without the Blueprint: New → Web Service → this repo → Build `npm install && npm run build` → Start `npm start` → add the same environment variables.)*
 
@@ -230,13 +309,15 @@ The same Docker steps work on **any** VPS (Hostinger, DigitalOcean, AWS Lightsai
 
 ---
 
-## 8. Architecture & performance
+## 11. Architecture & performance
 
 ```
-Phone / browser (React PWA)  ──/api──▶  Express API  ──▶  MySQL 8
-   │  lazy chunk per screen               │  resources registry (generic CRUD + business hooks)
-   │  stale-while-revalidate cache        │  reportService (P&L, cost/kg, dues ageing, alerts)
-   └─ service worker (installable)        └─ auto schema + super admin on boot
+Browser (React PWA) ─┐
+                      ├──/api──▶  Express API  ──▶  MySQL 8
+Flutter app (Android/iOS) ┘        │  resources registry (generic CRUD + business hooks)
+                                   │  reportService (P&L, cost/kg, dues ageing, alerts)
+                                   │  suggestionsService (seasons: yield × temperature × price)
+                                   └─ auto schema + super admin on boot
 ```
 
 **Why it loads fast**
@@ -266,7 +347,7 @@ Phone / browser (React PWA)  ──/api──▶  Express API  ──▶  MySQL 
 
 ---
 
-## 9. Project structure
+## 12. Project structure
 
 ```
 Polyhouse-OS/
@@ -276,20 +357,23 @@ Polyhouse-OS/
 │     ├─ env.js / db.js         .env & DATABASE_URL, MySQL pool (TLS for cloud MySQL)
 │     ├─ schema.sql             33 tables
 │     ├─ migrate.js / reset.js  create/upgrade tables · drop & reload demo data
-│     ├─ seed.js                demo farm "XYZ Polyhouse" (60 days, relative to today)
+│     ├─ seed.js                demo farm "XYZ Polyhouse" (14 months, relative to today)
 │     ├─ config.js              modules, customer types, default categories, alert limits, roles
 │     ├─ resources.js           registry of every table: fields, permissions, form metadata, business hooks
 │     ├─ reportService.js       dashboards, P&L, balance sheet, receivables, ageing, alerts, finding
+│     ├─ suggestionsService.js  smart suggestions: best months, temperature range, plant-by, price peaks
 │     ├─ orgService.js          create customer + admin login
 │     ├─ middleware/auth.js     JWT, roles, module guard, rate limit
 │     └─ routes/                auth, public, superadmin, settings, crud, ops, reports, portal
 ├─ client/                      React + Vite PWA
 │  └─ src/
 │     ├─ lib/                   api (cache), router, auth, i18n (English/Telugu), format, nav
-│     ├─ ui/                    kit, charts, icons, Form, ResourcePage, PeriodPicker, Shell, LangSwitch
+│     ├─ ui/                    kit, charts, icons, Form, ResourcePage, PeriodPicker, Shell (+ quick entry), LangSwitch
 │     └─ apps/                  public (Landing, Login), farm (Dashboard, Sell, Harvest, Spend, Reports,
-│                               Vendors, Labour, Alerts, Settings, Setup, Account), super, vendor, labour
-├─ scripts/                     smoke.js (API test), build-icons.js
+│                               Vendors, Labour, Suggestions, Alerts, Settings, Setup, Account), super, vendor, labour
+├─ mobile/                      Flutter app (Android / iOS): lib/core, lib/ui, lib/screens, test/
+├─ docs/                        USER_MANUAL.md, COMMITS.md
+├─ scripts/                     smoke.js (API test), scenarios.js (edge cases), build-icons.js
 ├─ Contents1.html               map of every file: what is where and what to edit for a change
 ├─ Dockerfile, docker-compose.yml, render.yaml
 └─ .env.example
@@ -297,7 +381,7 @@ Polyhouse-OS/
 
 ---
 
-## 10. API overview
+## 13. API overview
 
 All endpoints are under `/api`. Authenticated calls use `Authorization: Bearer <token>` from `POST /api/auth/login`.
 
@@ -308,14 +392,14 @@ All endpoints are under `/api`. Authenticated calls use `Authorization: Bearer <
 | Meta | `/meta` | user, organisation, modules, every form's field definitions |
 | Generic records | `/r/:resource` | `GET` list (`from`, `to`, filters, `q`), `GET /options`, `POST`, `PUT /:id`, `DELETE /:id` for 30 resources (farms, crops, sales, harvests, expenses, workers, …) |
 | Operations | `/ops` | `price`, `produce-stock`, `locks`, `attendance-sheet`, `wage-calc`, `wage-run`, `recurring/post`, `upload`, `file/:name` |
-| Dashboards & reports | `/` | `dashboard`, `reports/summary`, `reports/pnl`, `reports/balance`, `reports/receivables`, `reports/vendor/:id`, `reports/daybook`, `alerts` |
+| Dashboards & reports | `/` | `dashboard`, `suggestions`, `reports/summary`, `reports/pnl`, `reports/balance`, `reports/receivables`, `reports/vendor/:id`, `reports/daybook`, `alerts` |
 | Settings | `/` | `GET/PUT settings`, `GET/POST/PUT/DELETE users` |
 | Portals | `/portal` | `vendor`, `vendor/sales/:id`, `vendor/orders`, `labour`, `labour/checkin`, `labour/tasks/:id` |
 | Super admin | `/super` | `orgs` (create/edit/reset-admin/impersonate/suspend), `leads` |
 
 ---
 
-## 11. Scripts & testing
+## 14. Scripts & testing
 
 | Command | What it does |
 |---|---|
@@ -326,10 +410,13 @@ All endpoints are under `/api`. Authenticated calls use `Authorization: Bearer <
 | `npm run build` | Production build of the web app into `client/dist` |
 | `npm start` | Production server on :4000 (API + built web app) |
 | `npm run smoke` | Logs in as every role and exercises ~110 API calls — every list, report and permission check, plus write flows (sale with automatic price, harvest, expense, payment, vendor confirmation, vendor order, labour check-in, demo request). `npm run smoke -- --read-only` skips the writes. `BASE=https://your-site npm run smoke -- --read-only` checks a deployed site. |
+| `npm run scenarios` | ~53 edge-case checks: price cannot be overridden by delivery staff, edits recalculate amounts, stock follows purchase edits/deletes, records in use cannot be deleted, spray-lock override rules, every permission, module on/off, organisations cannot see each other, suspend / reset, recurring payments posted once, smart suggestions learned |
+| `npm test` | `smoke` + `scenarios` together (server must be running on :4000, demo data loaded) |
+| `cd mobile && flutter analyze && flutter test` | Mobile app static checks + unit/widget tests |
 
 ---
 
-## 12. Configuration (.env)
+## 15. Configuration (.env)
 
 | Key | Meaning |
 |---|---|
@@ -343,11 +430,23 @@ All endpoints are under `/api`. Authenticated calls use `Authorization: Bearer <
 
 ---
 
-## 13. Roadmap
+## 16. Documentation
+
+| Document | For |
+|---|---|
+| [docs/USER_MANUAL.md](docs/USER_MANUAL.md) | Step-by-step guide for every role: super admin, owner, manager, supervisor, delivery, vendor, labour — web and mobile |
+| [docs/COMMITS.md](docs/COMMITS.md) | What each commit delivered, and how to commit / push changes under your name |
+| [Contents1.html](Contents1.html) | Map of every file: what is where and exactly which files to edit for a change |
+| [mobile/README.md](mobile/README.md) | Mobile app folder guide |
+
+---
+
+## 17. Roadmap
 
 From the blueprint's "later" list and natural next steps:
 
-- Offline entry inside the polyhouse with sync at the gate; voice entry in Telugu.
+- Offline entry inside the polyhouse with sync at the gate; voice entry in Telugu; photo upload from the mobile app.
+- Weather forecast feed (IMD) next to smart suggestions; suggestions per bay and per variety.
 - WhatsApp Cloud API: evening digest to the owner, payslips to workers, automatic dues reminders.
 - IoT sensors for EC/pH, temperature and humidity; connected weighing scale for harvest.
 - GST invoices and Tally export; UPI payment links on vendor statements.

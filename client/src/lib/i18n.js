@@ -40,6 +40,10 @@ const TE = {
   "Set each vendor's price": 'ప్రతి వెండర్ ధర పెట్టండి', 'Add workers with pay': 'కూలీలు & జీతం జోడించండి', 'Create logins for your team': 'మీ టీమ్‌కు లాగిన్లు ఇవ్వండి',
   'Avg price': 'సగటు ధర', 'margin': 'మార్జిన్', 'sold': 'అమ్మినది', 'rejected': 'తిరస్కరణ', 'collected': 'వసూలు', 'Profit / acre': 'ఎకరాకు లాభం', 'Man-days': 'పని దినాలు', 'Labour cost': 'కూలీ ఖర్చు',
 
+  'Smart suggestions': 'స్మార్ట్ సూచనలు', 'Next month': 'వచ్చే నెల', 'Best season': 'మంచి కాలం', Price: 'ధర', 'Weak month': 'బలహీన నెల', Learning: 'నేర్చుకుంటోంది',
+  'Quick entry': 'త్వరిత నమోదు', 'New entry': 'కొత్త నమోదు', Sale: 'అమ్మకం', Expense: 'ఖర్చు', 'Payment received': 'వచ్చిన చెల్లింపు', 'Vendor order': 'వెండర్ ఆర్డర్',
+  'EC / pH': 'EC / pH', Temperature: 'ఉష్ణోగ్రత', 'Pest check': 'పురుగు పరిశీలన', Spray: 'పిచికారీ', 'Stock use': 'స్టాక్ వాడకం', 'Find a screen…': 'స్క్రీన్ వెతకండి…', All: 'అన్నీ',
+
   // sell / harvest / spend
   'Sell / deliver': 'అమ్మకం / డెలివరీ', '1. Crop': '1. పంట', '2. Vendor': '2. వెండర్', '3. Quantity': '3. పరిమాణం', 'Save sale': 'అమ్మకం సేవ్', 'Open orders': 'పెండింగ్ ఆర్డర్లు',
   'Sales today': 'ఈరోజు అమ్మకాలు', 'Produce stock (3 days)': 'సరుకు స్టాక్ (3 రోజులు)', 'Available to sell': 'అమ్మకానికి ఉంది', 'Against order': 'ఆర్డర్ ప్రకారం', None: 'ఏదీ కాదు',

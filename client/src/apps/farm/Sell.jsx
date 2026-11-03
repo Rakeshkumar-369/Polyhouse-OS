@@ -6,6 +6,7 @@ import { t } from '../../lib/i18n';
 import { money, num, todayISO, cls } from '../../lib/format';
 import { Card, Chips, Icon, PageHeader, useToast, Badge, Empty } from '../../ui/kit';
 import { useOptions } from '../../ui/Form';
+import { Link } from '../../lib/router';
 
 export default function Sell() {
   const { cur, role, on, meta } = useAuth();
@@ -82,6 +83,9 @@ export default function Sell() {
                 <label className="label">{t('Rate / unit')}</label>
                 <input className="input !text-2xl" type="number" step="any" inputMode="decimal" value={f.rate} disabled={!canPrice} onChange={(e) => setF({ ...f, rate: e.target.value })} />
                 {price && <p className="text-[11px] text-slate-400 mt-1">from {price.source}</p>}
+                {price && price.source !== 'vendor price list' && (
+                  <p className="text-[11px] text-amber-700 mt-1">No price set for this vendor{canPrice ? <> — <Link to="/m/price_list?new=1" className="underline font-semibold">set it now</Link></> : ' — tell the owner'}.</p>
+                )}
               </div>
             </div>
             {vendorOrders.length > 0 && (

@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const helmet = require('helmet');
 const compression = require('compression');
+const cors = require('cors');
 
 const app = express();
 app.set('trust proxy', 1); // behind Render / Nginx / Caddy
@@ -14,8 +15,11 @@ app.use(helmet({
     directives: { 'img-src': ["'self'", 'data:', 'blob:'], 'style-src': ["'self'", "'unsafe-inline'"], 'script-src': ["'self'"], 'upgrade-insecure-requests': null },
   },
   crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 app.use(compression());
+// The mobile app (and its web build) call the API from other origins; logins use a Bearer token, not cookies
+app.use('/api', cors({ origin: true, allowedHeaders: ['Content-Type', 'Authorization'] }));
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));

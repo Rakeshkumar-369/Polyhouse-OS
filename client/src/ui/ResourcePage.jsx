@@ -1,6 +1,6 @@
 // Generic list + add/edit screen for any resource (route /m/:res).
 // Columns, filters and form fields all come from server/src/resources.js via /api/meta.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useLocation } from '../lib/router';
@@ -46,8 +46,10 @@ export default function ResourcePage({ resKey, presetFilters, hideHeader, title 
   const [period, setPeriod] = useState(initialPeriod('last_30'));
   const [filters, setFilters] = useState(presetFilters || {});
   const [q, setQ] = useState('');
-  const [edit, setEdit] = useState(query.get('new') ? 'new' : null);
+  const [edit, setEdit] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const wantsNew = query.get('new');
+  useEffect(() => { if (wantsNew && def?.canWrite) setEdit('new'); }, [wantsNew, def?.canWrite]);
 
   const params = { ...filters, q, limit: 1000, ...(def?.dateField ? { from: period.from, to: period.to } : {}) };
   const { data: rows, error, reload } = useApi(def ? `/r/${resKey}` : null, params);

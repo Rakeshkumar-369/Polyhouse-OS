@@ -1,9 +1,11 @@
 {
   "name": "polyhouse-os",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "description": "Polyhouse OS - farm operating system for polyhouses, fields, FPOs and multi-location farms",
-  "engines": { "node": ">=18.18" },
+  "engines": {
+    "node": ">=18.18"
+  },
   "scripts": {
     "postinstall": "npm --prefix server install && npm --prefix client install --include=dev",
     "dev": "concurrently -k -n api,web -c green,blue \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
@@ -14,7 +16,11 @@
     "demo": "node server/src/seed.js --demo",
     "db:reset": "node server/src/reset.js",
     "smoke": "node scripts/smoke.js",
-    "icons": "node scripts/build-icons.js"
+    "scenarios": "node scripts/scenarios.js",
+    "test": "node scripts/smoke.js && node scripts/scenarios.js",
+    "icons": "node scripts/build-icons.js",
+    "mobile:test": "cd mobile && flutter analyze && flutter test",
+    "mobile:apk": "cd mobile && flutter build apk --release"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

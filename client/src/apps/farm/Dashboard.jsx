@@ -10,6 +10,7 @@ import { BarChart, LineChart, ShareBars, Sparkline } from '../../ui/charts';
 import { useOptions } from '../../ui/Form';
 import PeriodPicker from '../../ui/PeriodPicker';
 import { AlertList } from './Alerts';
+import { SuggestionList } from './Suggestions';
 
 const greet = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
 
@@ -155,6 +156,12 @@ export default function Dashboard() {
           ? <Stat label={t('Cash in hand')} value={money(I.cash, cur)} sub={`${shortMoney(T.collected, cur)} ${t('collected')}`} icon="cash-coin" tone="blue" />
           : <Stat label={t('Collected')} value={money(T.collected, cur)} sub="payments in" icon="cash-coin" tone="blue" />}
       </div>
+
+      {d.suggestions?.length > 0 && (
+        <Card title={<><Icon name="lightbulb" className="text-amber-500" /> {t('Smart suggestions')}</>} sub="Learned from your past seasons" action={<Link to="/suggestions" className="text-sm text-brand-700 font-semibold">All</Link>}>
+          <SuggestionList items={d.suggestions} limit={3} />
+        </Card>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-3 items-start">
         <Card title={`${t('Sales vs expenses')} · ${t('by ' + s.group)}`} className="xl:col-span-2">

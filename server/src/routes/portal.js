@@ -7,7 +7,7 @@ const { auth, allow, moduleOn } = require('../middleware/auth');
 const { today, addDays, activeLocks } = require('../resources');
 const { calcWages } = require('./ops');
 const { vendorStatement } = require('./reports');
-const { wrap } = require('./crud');
+const { wrap, isDate } = require('./crud');
 
 router.use(auth);
 
@@ -43,7 +43,7 @@ router.put('/vendor/sales/:id', vendor, wrap(async (req, res) => {
 
 router.post('/vendor/orders', vendor, moduleOn('orders'), wrap(async (req, res) => {
   const b = req.body || {};
-  if (!b.crop_id || !(Number(b.quantity) > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(b.date || '')) return res.status(400).json({ error: 'Crop, quantity and date are required' });
+  if (!b.crop_id || !(Number(b.quantity) > 0) || !isDate(b.date || '')) return res.status(400).json({ error: 'Crop, quantity and date are required' });
   if (!(await one('SELECT id FROM crops WHERE id=? AND org_id=?', [b.crop_id, req.org.id]))) return res.status(400).json({ error: 'Crop not found' });
   await q('INSERT INTO orders (org_id,date,party_id,crop_id,grade,quantity,notes,created_by) VALUES (?,?,?,?,?,?,?,?)',
     [req.org.id, b.date, req.user.party_id, b.crop_id, b.grade || 'A', Number(b.quantity), String(b.notes || '').slice(0, 300) || null, req.user.id]);

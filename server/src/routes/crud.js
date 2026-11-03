@@ -41,6 +41,14 @@ function getRes(req, res, mode) {
   return r;
 }
 
+const bad = (msg) => Object.assign(new Error(msg), { status: 400 });
+// A real calendar date in YYYY-MM-DD form (rejects 2026-13-45, 2026-02-30 ...)
+const isDate = (v) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(v))) return false;
+  const d = new Date(v + 'T00:00:00Z');
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+};
+
 // Cleans the request body into column values (type coercion + whitelist)
 async function clean(r, body, org, isCreate) {
   const d = {};
@@ -53,9 +61,12 @@ async function clean(r, body, org, isCreate) {
     let v = body[f.name];
     if (v === '' || v === undefined) v = null;
     if (v !== null) {
-      if (f.type === 'number' || f.type === 'ref') { v = Number(v); if (Number.isNaN(v)) throw Object.assign(new Error(`${f.label} must be a number`), { status: 400 }); }
+      if (f.type === 'number' || f.type === 'ref') { v = Number(v); if (!Number.isFinite(v)) throw bad(`${f.label} must be a number`); }
+      if (f.type === 'number' && v < 0 && !f.allowNegative) throw bad(`${f.label} cannot be negative`);
       if (f.type === 'bool') v = v === true || v === 1 || v === '1' || v === 'true' ? 1 : 0;
-      if (f.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(String(v))) throw Object.assign(new Error(`${f.label}: invalid date`), { status: 400 });
+      if (f.type === 'date' && !isDate(v)) throw bad(`${f.label}: invalid date`);
+      if (f.type === 'select' && !f.options.includes(v)) throw bad(`${f.label}: choose one of ${f.options.join(', ')}`);
+      if (typeof v === 'string') v = v.trim().slice(0, f.type === 'textarea' ? 5000 : 250);
     }
     if (f.type === 'ref' && v !== null) {
       const ok = await one(`SELECT id FROM ${R[f.ref].table} WHERE id=? AND org_id=?`, [v, org.id]);
@@ -87,6 +98,7 @@ router.get('/meta', wrap(async (req, res) => {
 router.get('/r/:res', wrap(async (req, res) => {
   const r = getRes(req, res, 'read'); if (!r) return;
   const where = ['t.org_id=?']; const p = [req.org.id];
+  for (const k of ['from', 'to']) if (req.query[k] && !isDate(req.query[k])) throw bad(`${k}: invalid date`);
   if (r.dateField && req.query.from) { where.push(`t.${r.dateField}>=?`); p.push(req.query.from); }
   if (r.dateField && req.query.to) { where.push(`t.${r.dateField}<=?`); p.push(req.query.to); }
   for (const f of r.filters) if (req.query[f] !== undefined && req.query[f] !== '') { where.push(`t.${f}=?`); p.push(req.query[f]); }
@@ -144,6 +156,18 @@ router.delete('/r/:res/:id', wrap(async (req, res) => {
   const r = getRes(req, res, 'write'); if (!r) return;
   const existing = await one(`SELECT * FROM ${r.table} WHERE org_id=? AND id=?`, [req.org.id, req.params.id]);
   if (!existing) return res.status(404).json({ error: 'Not found' });
+  // Records still used elsewhere cannot be deleted (keeps reports correct)
+  const used = [];
+  for (const other of Object.values(R)) {
+    for (const f of other.fields.filter((x) => x.type === 'ref' && x.ref === r.key)) {
+      const n = (await one(`SELECT COUNT(*) n FROM ${other.table} WHERE org_id=? AND ${f.name}=?`, [req.org.id, req.params.id])).n;
+      if (n) used.push(`${n} ${other.title.toLowerCase()}`);
+    }
+  }
+  if (used.length) {
+    const hint = r.fields.some((f) => f.name === 'active') ? ' Untick "Active" instead to hide it.' : ' Delete or change those entries first.';
+    return res.status(409).json({ error: `Cannot delete: it is used in ${used.join(', ')}.${hint}` });
+  }
   await q(`DELETE FROM ${r.table} WHERE org_id=? AND id=?`, [req.org.id, req.params.id]);
   if (r.hooks.after) await r.hooks.after(Number(req.params.id), existing, { op: 'delete', user: req.user, org: req.org, existing }, 'delete');
   res.json({ ok: true });
@@ -151,3 +175,4 @@ router.delete('/r/:res/:id', wrap(async (req, res) => {
 
 module.exports = router;
 module.exports.wrap = wrap;
+module.exports.isDate = isDate;

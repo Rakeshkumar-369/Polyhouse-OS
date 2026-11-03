@@ -22,6 +22,7 @@ const FARM = {
   '/vendors': lazy(() => import('./apps/farm/Vendors')),
   '/labour': lazy(() => import('./apps/farm/Labour')),
   '/alerts': lazy(() => import('./apps/farm/Alerts')),
+  '/suggestions': lazy(() => import('./apps/farm/Suggestions')),
   '/settings': lazy(() => import('./apps/farm/Settings')),
   '/account': lazy(() => import('./apps/farm/Account')),
   '/more': lazy(() => import('./ui/Shell').then((m) => ({ default: m.MorePage }))),
