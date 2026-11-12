@@ -104,9 +104,10 @@ const login = async (l, p) => (await call(null, 'POST', '/auth/login', { login: 
   }
 
   // --- labour check-in sequence ---
-  const c1 = (await call(lab, 'POST', '/portal/labour/checkin')).status;
+  const c1 = await call(lab, 'POST', '/portal/labour/checkin');
   const c2 = (await call(lab, 'POST', '/portal/labour/checkin')).status;
-  check(c1 === 200 && [200, 400].includes(c2), 'labour check-in / check-out sequence');
+  const doneEarlier = c1.status === 400 && /already/i.test(c1.data.error || ''); // test run again on the same day
+  check((c1.status === 200 && [200, 400].includes(c2)) || doneEarlier, 'labour check-in / check-out sequence', JSON.stringify(c1.data));
 
   // --- permissions ---
   check((await call(del, 'GET', '/r/expenses')).status === 403, 'delivery cannot see expenses');
@@ -168,6 +169,66 @@ const login = async (l, p) => (await call(null, 'POST', '/auth/login', { login: 
   r = await call(owner, 'GET', '/suggestions');
   check(r.status === 200 && r.data.suggestions.length > 0, 'suggestions are produced from history', r.data.suggestions?.length);
   check(r.data.suggestions.some((s) => /Lettuce/i.test(s.title + s.detail)), 'lettuce season is learned');
+
+  // --- bills & receipts ---
+  const BILLNO = /^[A-Z0-9-]+\/\d{4}-\d{2}\/\d{4}$/;
+  const crop2 = crops[1] || crop;
+  r = await call(del, 'POST', '/bills', { party_id: other.id, lines: [{ crop_id: crop.id, grade: 'A', quantity: 4, rate: 1 }, { crop_id: crop2.id, grade: 'A', quantity: 2 }] });
+  const bill1 = r.data;
+  check(r.status === 200 && bill1.lines.length === 2 && BILLNO.test(bill1.bill.bill_no), 'delivery makes a multi-item bill', JSON.stringify(r.data).slice(0, 160));
+  check(bill1.lines.every((l) => l.rate > 1), 'bill lines use the vendor price, not a typed rate');
+  check(Math.abs(bill1.totals.amount - bill1.lines.reduce((a, l) => a + l.amount, 0)) < 0.01, 'bill total = sum of lines');
+  check(/^https:\/\/wa\.me\/(91\d{10})?\?text=/.test(bill1.share.whatsapp) && bill1.share.text.includes(bill1.bill.bill_no), 'bill has a WhatsApp link with the bill number');
+  r = await call(owner, 'POST', '/bills', { party_id: other.id, lines: [{ crop_id: crop.id, quantity: 1 }] });
+  const n1 = Number(bill1.bill.bill_no.split('/').pop()); const n2 = Number(r.data.bill.bill_no.split('/').pop());
+  check(n2 === n1 + 1, 'bill numbers run in sequence', `${n1} -> ${n2}`);
+  const bill2 = r.data;
+  const tok1 = bill1.share.url.split('/').pop();
+  r = await call(null, 'GET', `/public/bill/${tok1}`);
+  check(r.status === 200 && r.data.bill.bill_no === bill1.bill.bill_no && !r.data.share.whatsapp && !r.data.header.org_id, 'public bill link works without login');
+  check((await call(null, 'GET', '/public/bill/not-a-real-token-123456')).status === 404, 'unknown bill link is 404');
+  check((await call(null, 'GET', '/public/bill/x')).status >= 400, 'malformed bill link refused');
+  check((await call(iso, 'GET', `/bills/${bill1.bill.id}`)).status === 404, "another org's bill is invisible");
+  check((await call(ven, 'GET', '/bills')).status === 403, 'vendor login cannot list bills');
+  check((await call(owner, 'POST', '/bills', { party_id: other.id, lines: [] })).status === 400, 'bill without items refused');
+  check((await call(owner, 'POST', '/bills', { party_id: other.id, lines: [{ crop_id: crop.id, quantity: -2 }] })).status === 400, 'bill with negative quantity refused');
+  check((await call(owner, 'POST', '/bills', { party_id: other.id, lines: Array.from({ length: 51 }, () => ({ crop_id: crop.id, quantity: 1 })) })).status === 400, 'more than 50 items refused');
+  check((await call(owner, 'GET', `/bills?party_id=${other.id}&limit=5`)).data.some((b) => b.id === bill1.bill.id), 'bill appears in the list');
+  r = await call(owner, 'PUT', `/r/sales/${bill1.lines[0].id}`, { party_id: vendor.id });
+  check(r.status === 409, 'billed sale cannot move to another vendor', r.status);
+  await call(del, 'POST', `/bills/${bill1.bill.id}/sent`);
+  check((await call(owner, 'GET', `/bills/${bill1.bill.id}`)).data.bill.sent_count === 1, 'sent is remembered');
+  check((await call(del, 'POST', `/bills/${bill1.bill.id}/cancel`)).status === 403, 'delivery cannot cancel a bill');
+  r = await call(owner, 'POST', `/bills/${bill1.bill.id}/cancel`);
+  check(r.status === 200 && (await call(owner, 'GET', `/bills/${bill1.bill.id}`)).data.bill.status === 'cancelled', 'owner cancels a bill');
+  const unb = (await call(owner, 'GET', '/bills/unbilled')).data.find((u) => u.party_id === other.id);
+  check(unb && unb.line_count >= 2, 'cancelled bill lines become unbilled');
+  r = await call(owner, 'POST', '/bills/from-sales', { party_id: other.id, from: '2000-01-01', to: today });
+  check(r.status === 200 && r.data.created === 1 && r.data.bills[0].lines.length >= 2, 'unbilled sales billed in one go');
+  check(!(await call(owner, 'GET', '/bills/unbilled')).data.some((u) => u.party_id === other.id), 'nothing left unbilled for that vendor');
+  check((await call(owner, 'POST', '/bills/from-sales', { from: 'bad' , to: today })).status === 400, 'bill-from-sales needs valid dates');
+  await call(owner, 'DELETE', `/r/sales/${bill2.lines[0].id}`);
+  check((await call(owner, 'GET', `/bills/${bill2.bill.id}`)).data.bill.status === 'cancelled', 'bill with all lines deleted is cancelled');
+  r = await call(owner, 'POST', '/r/payments_received', { party_id: other.id, amount: 250, mode: 'cash', date: today });
+  const pay = (await call(owner, 'GET', `/receipts/${r.data.id}`)).data;
+  check(/-R\/\d{4}-\d{2}\/\d{4}$/.test(pay.payment.receipt_no) && pay.share.whatsapp.includes('wa.me'), 'payment gets a numbered receipt', pay.payment?.receipt_no);
+  check((await call(null, 'GET', `/public/receipt/${pay.share.url.split('/').pop()}`)).data.payment.amount === 250, 'public receipt link works');
+  check((await call(del, 'GET', `/receipts/${r.data.id}`)).status === 403, 'delivery cannot open receipts');
+  r = await call(owner, 'GET', `/statement-link/${other.id}`);
+  check(r.status === 200 && r.data.kind === 'statement' && (await call(null, 'GET', `/public/statement/${r.data.share.url.split('/').pop()}`)).status === 200, 'vendor statement link works');
+  r = await call(owner, 'GET', '/share/today');
+  check(r.status === 200 && r.data.text.includes('Sales') && r.data.whatsapp.startsWith('https://wa.me/'), "today's summary for WhatsApp");
+  await call(owner, 'PUT', '/settings', { settings: { modules: { billing: false } } });
+  check((await call(owner, 'GET', '/bills')).status === 403, 'bills blocked when the module is off');
+  await call(owner, 'PUT', '/settings', { settings: { modules: { billing: true } } });
+  await call(owner, 'PUT', '/settings', { settings: { billing: { prefix: 'bad prefix!!' } } });
+  check(/^[A-Za-z0-9-]*$/.test((await call(owner, 'GET', '/settings')).data.org.settings.billing.prefix), 'bill prefix is cleaned');
+  await call(owner, 'PUT', '/settings', { settings: { billing: { prefix: '' } } });
+
+  // --- attendance input checks ---
+  const future = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+  check((await call(owner, 'POST', '/ops/attendance-sheet', { date: future, entries: [{ worker_id: workers[1].id, status: 'present' }] })).status === 400, 'attendance in the future refused');
+  check((await call(owner, 'POST', '/ops/attendance-sheet', { date: today, entries: [{ worker_id: workers[1].id, status: 'party' }] })).status === 400, 'unknown attendance status refused');
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

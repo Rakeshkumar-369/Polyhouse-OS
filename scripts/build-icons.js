@@ -9,7 +9,7 @@ journal-text check2-square droplet-half thermometer-half bug moisture flower1 ar
 bank arrow-return-left tools folder2-open building map graph-up key box-arrow-in-right geo-alt person fingerprint door-open incognito translate
 chevron-right chevron-left chevron-down alarm calculator x-octagon emoji-smile inbox lock hourglass-split box-arrow-up person-plus envelope
 star-fill shield-check lightning-charge list-check megaphone speedometer2 clipboard-data arrow-right play-circle telephone cloud-check
-phone rocket-takeoff three-dots sliders arrow-clockwise copy share`.split(/\s+/).filter(Boolean);
+phone rocket-takeoff three-dots sliders arrow-clockwise copy share qr-code file-earmark-text send repeat x-circle cart3 dash-lg plus-circle-dotted`.split(/\s+/).filter(Boolean);
 const dir = path.join(__dirname, '..', 'client', 'node_modules', 'bootstrap-icons', 'icons');
 const out = {};
 for (const n of NAMES) {

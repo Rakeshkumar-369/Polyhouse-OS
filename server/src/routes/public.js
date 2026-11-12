@@ -29,4 +29,38 @@ router.get('/demo-accounts', wrap(async (req, res) => {
   ]);
 }));
 
+// ---- public, read-only documents opened from WhatsApp (no login; the token is the secret) ----
+const B = require('../billService');
+const docLimit = limit(240, 600);
+const base = (req) => (process.env.APP_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+const validToken = (t) => /^[A-Za-z0-9_-]{16,40}$/.test(String(t || ''));
+
+router.get('/bill/:token', docLimit, wrap(async (req, res) => {
+  if (!validToken(req.params.token)) return res.status(404).json({ error: 'Bill not found' });
+  const b = await one('SELECT * FROM bills WHERE token=?', [req.params.token]);
+  if (!b) return res.status(404).json({ error: 'Bill not found' });
+  const d = await B.billData(b, base(req));
+  delete d.share.whatsapp; delete d.bill.sent_count; delete d.bill.sent_at;
+  res.json(d);
+}));
+
+router.get('/receipt/:token', docLimit, wrap(async (req, res) => {
+  if (!validToken(req.params.token)) return res.status(404).json({ error: 'Receipt not found' });
+  const p = await one('SELECT * FROM payments_received WHERE token=?', [req.params.token]);
+  if (!p) return res.status(404).json({ error: 'Receipt not found' });
+  const d = await B.receiptData(p, base(req)); delete d.share.whatsapp;
+  res.json(d);
+}));
+
+router.get('/statement/:token', docLimit, wrap(async (req, res) => {
+  if (!validToken(req.params.token)) return res.status(404).json({ error: 'Statement not found' });
+  const p = await one('SELECT * FROM parties WHERE share_token=?', [req.params.token]);
+  if (!p) return res.status(404).json({ error: 'Statement not found' });
+  const { isDate } = require('./crud');
+  const to = isDate(req.query.to || '') ? req.query.to : new Date().toISOString().slice(0, 10);
+  const from = isDate(req.query.from || '') ? req.query.from : new Date(Date.now() - 59 * 864e5).toISOString().slice(0, 10);
+  const d = await B.statementData(p, base(req), from, to); delete d.share.whatsapp;
+  res.json(d);
+}));
+
 module.exports = router;

@@ -59,3 +59,21 @@ export function downloadCSV(name, rows, columns) {
 // Validated colour-blind-safe categorical order (fixed order, never cycled)
 export const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
 export const C = { revenue: '#2a78d6', expenses: '#eb6834', profit: '#1baf7a' };
+
+// Amount in words, Indian system: 125430.5 -> "One lakh twenty-five thousand four hundred thirty rupees and fifty paise only"
+const ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+const two = (n) => (n < 20 ? ONES[n] : TENS[Math.floor(n / 10)] + (n % 10 ? '-' + ONES[n % 10] : ''));
+const three = (n) => [n >= 100 ? ONES[Math.floor(n / 100)] + ' hundred' : '', two(n % 100)].filter(Boolean).join(' ');
+export function amountInWords(v) {
+  const total = Math.round(Math.abs(Number(v) || 0) * 100);
+  let r = Math.floor(total / 100); const p = total % 100;
+  if (!r && !p) return 'Zero rupees only';
+  const parts = [];
+  for (const [div, name] of [[1e7, 'crore'], [1e5, 'lakh'], [1e3, 'thousand']]) {
+    if (r >= div) { parts.push(`${div === 1e7 ? amountInWords(Math.floor(r / div)).replace(/ rupees.*$/, '').toLowerCase() : two(Math.floor(r / div))} ${name}`); r %= div; }
+  }
+  if (r) parts.push(three(r));
+  const words = parts.join(' ') + (total >= 100 ? ' rupees' : '') + (p ? `${total >= 100 ? ' and' : ''} ${two(p)} paise` : '') + ' only';
+  return words.trim().charAt(0).toUpperCase() + words.trim().slice(1);
+}

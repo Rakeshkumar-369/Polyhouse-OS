@@ -1,4 +1,4 @@
-// Admin settings: company profile & vision, module on/off toggles, alert limits, user logins
+// Admin settings: company profile & vision, bills & receipts (UPI, numbering), module on/off toggles, alert limits, user logins
 import { useState } from 'react';
 import { api, useApi } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -89,8 +89,40 @@ function Thresholds({ org, reload }) {
   );
 }
 
+function Billing({ org, reload }) {
+  const toast = useToast();
+  const [b, setB] = useState({ prefix: '', title: 'Bill of Supply', upi_id: '', bank_details: '', footer: '', when: 'each_delivery', show_balance: true, ...(org.settings.billing || {}) });
+  const set = (k) => (e) => setB({ ...b, [k]: e.target.value });
+  const save = async (e) => { e.preventDefault(); try { await api.put('/settings', { settings: { billing: b } }); toast(t('Saved')); reload(); } catch (e2) { toast(e2.message, 'error'); } };
+  const fy = (() => { const d = new Date(); const y = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1; return `${y}-${String(y + 1).slice(2)}`; })();
+  const pre = (b.prefix || org.name.split(/\s+/)[0].replace(/[^A-Za-z0-9]/g, '').slice(0, 4)).toUpperCase();
+  return (
+    <form onSubmit={save} className="space-y-4">
+      <Card title={t('Bills & receipts')} sub="What your vendors see on the bill / receipt you send on WhatsApp">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div><label className="label">{t('When to make the bill')}</label>
+            <select className="input" value={b.when} onChange={set('when')}>
+              <option value="each_delivery">With every delivery (bill on Save)</option>
+              <option value="later">Later — weekly / monthly from Bills → To bill</option>
+            </select></div>
+          <div><label className="label">{t('Bill number starts with')}</label><input className="input uppercase" maxLength={12} value={b.prefix} placeholder={pre} onChange={(e) => setB({ ...b, prefix: e.target.value.replace(/[^A-Za-z0-9-]/g, '') })} />
+            <p className="text-xs text-slate-500 mt-1">Bills: <b>{pre}/{fy}/0001</b> · Receipts: <b>{pre}-R/{fy}/0001</b> (restarts every April)</p></div>
+          <div><label className="label">{t('Bill heading')}</label><input className="input" maxLength={60} value={b.title} onChange={set('title')} placeholder="Bill of Supply / Tax Invoice / Delivery Challan" /></div>
+          <div><label className="label">{t('UPI ID (for the pay QR code)')}</label><input className="input" maxLength={80} value={b.upi_id} onChange={set('upi_id')} placeholder="yourname@okaxis" /></div>
+          <div className="sm:col-span-2"><label className="label">{t('Bank details')}</label><textarea className="input" rows={2} maxLength={300} value={b.bank_details} onChange={set('bank_details')} placeholder="A/c name, A/c no., IFSC, branch" /></div>
+          <div className="sm:col-span-2"><label className="label">{t('Footer note')}</label><input className="input" maxLength={200} value={b.footer} onChange={set('footer')} placeholder="Thank you for your business." /></div>
+          <label className="sm:col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-brand-600" checked={!!b.show_balance} onChange={(e) => setB({ ...b, show_balance: e.target.checked })} /> {t('Show the total balance due on bills and receipts')}</label>
+        </div>
+        <p className="text-xs text-slate-500 mt-3">Farm name, address, phone and GSTIN on the bill come from <b>Farm profile</b>.</p>
+        <button className="btn-primary mt-4">{t('Save')}</button>
+      </Card>
+    </form>
+  );
+}
+
 function Users({ org }) {
   const toast = useToast();
+  const { on } = useAuth();
   const { data: rows, reload } = useApi('/users');
   const [edit, setEdit] = useState(null);
   const [created, setCreated] = useState(null);
@@ -127,7 +159,7 @@ function Users({ org }) {
       <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'Edit login' : 'New login'}>
         {edit && (
           <form onSubmit={save} className="space-y-3">
-            <div><label className="label">Role</label><select className="input" value={edit.role} onChange={(e) => setEdit({ ...edit, role: e.target.value })}>{Object.entries(ROLES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
+            <div><label className="label">Role</label><select className="input" value={edit.role} onChange={(e) => setEdit({ ...edit, role: e.target.value })}>{Object.entries(ROLES).filter(([k]) => k === edit.role || (k !== 'vendor' || on('vendor_portal')) && (k !== 'labour' || on('labour_portal'))).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
             {edit.role === 'labour' && <div><label className="label">Which worker?</label><select className="input" required value={edit.worker_id || ''} onChange={(e) => { const w = workers.find((x) => String(x.id) === e.target.value); setEdit({ ...edit, worker_id: e.target.value, name: edit.name || w?.label || '' }); }}><option value="">—</option>{workers.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}</select></div>}
             {edit.role === 'vendor' && <div><label className="label">Which vendor?</label><select className="input" required value={edit.party_id || ''} onChange={(e) => { const p = parties.find((x) => String(x.id) === e.target.value); setEdit({ ...edit, party_id: e.target.value, name: edit.name || p?.label || '' }); }}><option value="">—</option>{parties.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}</select></div>}
             <div><label className="label">{t('Name')}</label><input className="input" required value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></div>
@@ -151,8 +183,9 @@ export default function Settings() {
   return (
     <div className="space-y-4 max-w-4xl">
       <PageHeader title={t('Settings')} subtitle="Set up your farm your way" />
-      <Tabs tabs={[['profile', 'Farm profile'], ['modules', 'Modules on/off'], ['limits', 'Alert limits'], ['users', 'Users & logins']]} value={tab} onChange={setTab} />
+      <Tabs tabs={[['profile', 'Farm profile'], ['billing', 'Bills & receipts'], ['modules', 'Modules on/off'], ['limits', 'Alert limits'], ['users', 'Users & logins']]} value={tab} onChange={setTab} />
       {tab === 'profile' && <Profile org={data.org} reload={refresh} />}
+      {tab === 'billing' && <Billing org={data.org} reload={refresh} />}
       {tab === 'modules' && <Modules data={data} reload={refresh} />}
       {tab === 'limits' && <Thresholds org={data.org} reload={refresh} />}
       {tab === 'users' && <Users org={data.org} />}

@@ -21,8 +21,13 @@ router.put('/settings', allow('admin'), wrap(async (req, res) => {
     const merged = {
       ...cur, ...s,
       thresholds: { ...cur.thresholds, ...(s.thresholds || {}) },
+      billing: { ...cur.billing, ...(s.billing || {}) },
       modules: { ...cur.modules, ...(s.modules || {}) },
     };
+    for (const k of ['prefix', 'title', 'upi_id', 'bank_details', 'footer']) merged.billing[k] = String(merged.billing[k] ?? '').slice(0, k === 'bank_details' || k === 'footer' ? 400 : 60);
+    merged.billing.prefix = merged.billing.prefix.replace(/[^A-Za-z0-9-]/g, '').slice(0, 12);
+    merged.billing.show_balance = merged.billing.show_balance !== false && merged.billing.show_balance !== 'false';
+    if (!['each_delivery', 'later'].includes(merged.billing.when)) merged.billing.when = 'each_delivery';
     if (s.thresholds) for (const k of Object.keys(merged.thresholds)) merged.thresholds[k] = Number(merged.thresholds[k]);
     if (s.opening_cash !== undefined) merged.opening_cash = Number(s.opening_cash) || 0;
     d.settings = JSON.stringify(merged);

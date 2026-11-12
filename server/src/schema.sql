@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS parties (
   gstin VARCHAR(30),
   credit_days INT DEFAULT 0,
   opening_balance DECIMAL(12,2) DEFAULT 0,     -- buyer owes us (+)
+  share_token VARCHAR(40),                     -- secret part of the public statement link
   notes VARCHAR(500),
   active TINYINT(1) DEFAULT 1,
   INDEX (org_id)
@@ -194,8 +195,9 @@ CREATE TABLE IF NOT EXISTS sales (
   vendor_note VARCHAR(300),
   notes VARCHAR(300),
   delivered_by INT,
+  bill_id INT NULL,                            -- the bill this line is printed on (bills table)
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX (org_id, date), INDEX (party_id)
+  INDEX (org_id, date), INDEX (party_id), INDEX (bill_id)
 );
 
 CREATE TABLE IF NOT EXISTS payments_received (
@@ -207,6 +209,8 @@ CREATE TABLE IF NOT EXISTS payments_received (
   mode VARCHAR(20) DEFAULT 'cash',
   reference VARCHAR(100),
   notes VARCHAR(300),
+  receipt_no VARCHAR(40),                      -- e.g. XYZ-R/2026-27/0007
+  token VARCHAR(40),                           -- secret part of the public receipt link
   INDEX (org_id, date)
 );
 
@@ -502,4 +506,35 @@ CREATE TABLE IF NOT EXISTS demo_requests (
   message VARCHAR(500),
   status VARCHAR(20) DEFAULT 'new',            -- new | contacted | converted | closed
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bills (receipts of sale) sent to vendors - one bill groups the sale lines of a delivery
+-- (or of a week / month). Amounts are always summed from the linked sales rows, so edits
+-- and vendor rejections are reflected automatically. token = secret public link /b/<token>.
+CREATE TABLE IF NOT EXISTS bills (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  org_id INT NOT NULL,
+  bill_no VARCHAR(40) NOT NULL,
+  date DATE NOT NULL,
+  party_id INT NOT NULL,
+  farm_id INT NULL,
+  notes VARCHAR(300),
+  token VARCHAR(40) NOT NULL,
+  status VARCHAR(20) DEFAULT 'issued',         -- issued | cancelled
+  sent_count INT DEFAULT 0,
+  sent_at DATETIME NULL,
+  created_by INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_bill_no (org_id, bill_no),
+  UNIQUE KEY uq_bill_token (token),
+  INDEX (org_id, date), INDEX (party_id)
+);
+
+-- Running numbers per organisation, document kind and financial year (bill 0001, 0002 ...)
+CREATE TABLE IF NOT EXISTS doc_counters (
+  org_id INT NOT NULL,
+  kind VARCHAR(20) NOT NULL,
+  fy VARCHAR(10) NOT NULL,
+  last_no INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (org_id, kind, fy)
 );

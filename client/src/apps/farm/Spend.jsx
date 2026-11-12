@@ -36,7 +36,7 @@ export default function Spend() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-5">
-      <div className="lg:col-span-3">
+      <div className="lg:col-span-3 min-w-0">
         <PageHeader title={t('Spend')} subtitle="Seeds, trays, grow bags, labour, rent, current — every rupee spent" />
         <Card>
           <form onSubmit={save} className="space-y-4 pt-4">
@@ -68,7 +68,7 @@ export default function Spend() {
           </form>
         </Card>
       </div>
-      <div className="lg:col-span-2 space-y-4 lg:pt-[60px]">
+      <div className="lg:col-span-2 min-w-0 space-y-4 lg:pt-[60px]">
         {isMgr && (
           <Card title={t('Recent expenses')} action={<Link to="/m/expenses" className="text-sm text-brand-700 font-semibold">All</Link>}>
             {(recent.data || []).length ? recent.data.map((e) => (

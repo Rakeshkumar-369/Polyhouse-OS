@@ -78,6 +78,17 @@ const TE = {
   Product: 'మందు', Dose: 'మోతాదు', 'Target pest': 'లక్ష్య పురుగు', 'Pre-harvest interval (days)': 'కోతకు ముందు విరామం (రోజులు)', 'Harvest safe from': 'కోత సురక్షితం', 'Sprayed by': 'పిచికారీ చేసినవారు',
   Item: 'వస్తువు', Movement: 'కదలిక', 'Used at farm': 'వాడిన ఫారం', 'In stock now': 'ప్రస్తుత స్టాక్', 'Alert when stock below': 'స్టాక్ తగ్గితే హెచ్చరిక', 'Opening stock': 'ప్రారంభ స్టాక్',
   Mode: 'విధానం', 'Reference / UTR': 'రిఫరెన్స్ / UTR', Source: 'మూలం', 'Paid on': 'చెల్లించిన తేదీ', 'Needed on ': 'ఎప్పుడు కావాలి',
+  // bills & receipts
+  Bills: 'బిల్లులు', 'Bills & receipts': 'బిల్లులు & రసీదులు', Receipts: 'రసీదులు', 'To bill': 'బిల్లు చేయాల్సినవి', 'Make bill': 'బిల్లు చేయి', 'Make bills': 'బిల్లులు చేయి',
+  'Bill all': 'అన్నిటికీ బిల్లు', 'Bill ready': 'బిల్లు సిద్ధం', 'Send on WhatsApp': 'వాట్సాప్‌లో పంపు', Send: 'పంపు', Sent: 'పంపారు', sent: 'పంపారు', 'not sent': 'పంపలేదు', 'Not sent': 'పంపలేదు',
+  'Open / PDF': 'తెరువు / PDF', 'Share link': 'లింక్ పంపు', 'Cancel bill': 'బిల్లు రద్దు', cancelled: 'రద్దు', Cancelled: 'రద్దు', Issued: 'జారీ', 'Message preview': 'సందేశం చూడండి', 'Link copied': 'లింక్ కాపీ అయింది',
+  'Same as last time': 'గతసారి లాగే', 'Add another item': 'మరో వస్తువు జోడించు', '1. Vendor': '1. వెండర్', '2. Items': '2. వస్తువులు', added: 'జోడించారు',
+  'Save & make bill': 'సేవ్ & బిల్లు చేయి', 'Next sale': 'తదుపరి అమ్మకం', items: 'వస్తువులు', 'Amount received': 'వచ్చిన మొత్తం', 'Save & make receipt': 'సేవ్ & రసీదు చేయి', 'Record payment': 'చెల్లింపు నమోదు', recorded: 'నమోదైంది', payments: 'చెల్లింపులు',
+  'Send statement': 'స్టేట్‌మెంట్ పంపు', 'sale(s) not on a bill': 'బిల్లు కాని అమ్మకాలు', 'sale(s)': 'అమ్మకాలు', 'bill(s) made': 'బిల్లులు తయారయ్యాయి', 'Bills made — send them': 'బిల్లులు తయారు — పంపండి',
+  'Sales not on a bill yet': 'ఇంకా బిల్లు కాని అమ్మకాలు', 'New sale': 'కొత్త అమ్మకం', "Share today's summary": 'ఈరోజు సారాంశం పంపు', 'of sales not on a bill': 'అమ్మకాలు బిల్లు కాలేదు', vendors: 'వెండర్లు',
+  'When to make the bill': 'బిల్లు ఎప్పుడు చేయాలి', 'Bill number starts with': 'బిల్లు నంబర్ మొదలు', 'Bill heading': 'బిల్లు శీర్షిక', 'UPI ID (for the pay QR code)': 'UPI ID (చెల్లింపు QR కోసం)',
+  'Bank details': 'బ్యాంక్ వివరాలు', 'Footer note': 'చివరి గమనిక', 'Show the total balance due on bills and receipts': 'బిల్లు, రసీదుపై మొత్తం బాకీ చూపించు', 'Bills to vendors': 'వెండర్లకు బిల్లులు',
+  Bill: 'బిల్లు', Receipt: 'రసీదు', 'Print / Save PDF': 'ప్రింట్ / PDF సేవ్', 'Balance due': 'బాకీ', 'Scan to pay': 'స్కాన్ చేసి చెల్లించండి',
 };
 
 const DICTS = { te: TE };

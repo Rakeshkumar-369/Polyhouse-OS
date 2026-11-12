@@ -7,6 +7,7 @@ import { Spinner, Skeleton } from './ui/kit';
 
 const Landing = lazy(() => import('./apps/public/Landing'));
 const Login = lazy(() => import('./apps/public/Login'));
+const Doc = lazy(() => import('./apps/public/Doc'));
 const SuperAdmin = lazy(() => import('./apps/super/SuperAdmin'));
 const VendorApp = lazy(() => import('./apps/vendor/VendorApp'));
 const LabourApp = lazy(() => import('./apps/labour/LabourApp'));
@@ -22,6 +23,7 @@ const FARM = {
   '/vendors': lazy(() => import('./apps/farm/Vendors')),
   '/labour': lazy(() => import('./apps/farm/Labour')),
   '/alerts': lazy(() => import('./apps/farm/Alerts')),
+  '/bills': lazy(() => import('./apps/farm/Bills')),
   '/suggestions': lazy(() => import('./apps/farm/Suggestions')),
   '/settings': lazy(() => import('./apps/farm/Settings')),
   '/account': lazy(() => import('./apps/farm/Account')),
@@ -51,6 +53,9 @@ export default function App() {
   const { meta, loading, role } = useAuth();
   const { pathname } = useLocation();
   useLang();
+  // Bills / receipts / statements opened from WhatsApp: public, no login
+  const doc = pathname.match(/^\/(b|r|s)\/([A-Za-z0-9_-]{16,40})\/?$/);
+  if (doc) return <Suspense fallback={<Spinner />}><Doc kind={doc[1]} token={doc[2]} /></Suspense>;
   if (loading) return <Spinner />;
 
   let view;

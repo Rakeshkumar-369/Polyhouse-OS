@@ -13,7 +13,7 @@ This manual explains how each person uses Polyhouse OS, on the **web app** (any 
 5. [Reading the dashboard](#5-reading-the-dashboard)
 6. [Smart suggestions](#6-smart-suggestions)
 7. [Reports](#7-reports)
-8. [Vendors, prices and money owed](#8-vendors-prices-and-money-owed)
+8. [Vendors, bills & receipts on WhatsApp, money owed](#8-vendors-bills--receipts-on-whatsapp-money-owed)
 9. [Labour, attendance and wages](#9-labour-attendance-and-wages)
 10. [Expenses, stock and monthly bills](#10-expenses-stock-and-monthly-bills)
 11. [Crop care logs](#11-crop-care-logs)
@@ -74,7 +74,7 @@ On your first login a **5-step setup guide** opens. Every step can be skipped an
 
 1. **Farm details** — polyhouse / field name, location, acres, length × width × height, owned or leased (monthly rent is then posted automatically every month), how often you sell.
 2. **Crops you grow** — tap the crops (or type another), choose the unit (kg, bunch…) and a usual price.
-3. **Vendors & prices** — each buyer's name, phone, credit days, and **their price for each crop**. Your delivery person never types prices.
+3. **Vendors & prices** — each buyer's name, phone (used for WhatsApp), credit days, and **their price for each crop**. Your delivery person never types prices. In the same step choose **how you bill** (*every delivery* or *weekly / monthly*), enter your **UPI ID** (printed as a pay-QR on every bill) and tick *My vendors will also log in* only if your buyers want their own login — most farms just send bills on WhatsApp.
 4. **Workers & pay** — name, phone and pay: per day, per month, or per kg picked. Optional monthly electricity bill (posted automatically).
 5. **Done** — jump to *Record today's harvest*, *Record a sale* or *Create team logins*.
 
@@ -92,11 +92,12 @@ A typical day takes a few minutes:
 |---|---|---|
 | Morning | Mark attendance (P / ½ / A / L for each worker, *Mark rest present*) | **Labour → Attendance** (or **+ → Attendance**) |
 | After picking | Record the harvest: crop → grade → quantity (+ farm / bay / picker) | **Harvest** (or **+ → Harvest**) |
-| At each delivery | Record the sale: crop → grade → vendor → quantity. The vendor's price fills in | **Sell** (or **+ → Sale**) |
+| At each delivery | Record the sale: vendor → items (crop, grade, quantity — *Add another item*) → **Save & make bill** → **Send on WhatsApp**. The vendor's price fills in | **Sell** (or **+ → Sale**) |
 | When paying | Record the expense: category → amount (+ supplier, farm, stock item, bill photo) | **Spend** (or **+ → Expense**) |
-| When paid by a vendor | Record the payment | **Vendors → vendor → Record payment** (or **+ → Payment received**) |
+| When paid by a vendor | Record the payment → **Save & make receipt** → **Send on WhatsApp** | **Bills → Receipts** or **Vendors → vendor → Record payment** (or **+ → Payment received**) |
+| Weekly / monthly | Bill vendors you bill in bulk; send statements to vendors who owe | **Bills → To bill → Bill all**, **Vendors → vendor → Send statement** |
 | Once a day | Temperature reading (needed for smart suggestions), EC / pH | **+ → Temperature**, **+ → EC / pH** |
-| Evening | Read the dashboard and *Needs attention* | **Home** |
+| Evening | Read the dashboard and *Needs attention*; **Share today's summary** with a partner on WhatsApp | **Home** |
 
 ---
 
@@ -158,15 +159,29 @@ Example: if lettuce gave its best yield in December 2025 when the average temper
 
 ---
 
-## 8. Vendors, prices and money owed
+## 8. Vendors, bills & receipts on WhatsApp, money owed
 
 - **Set a vendor's price** — *Vendors → vendor → Prices* (or *More → Vendor price list*) → add crop, grade, price and the date it starts. A new row with a later date replaces the old price from that day; the old sales keep their price.
 - **Overdue** — sales older than the vendor's credit days that are not yet paid. Vendors with overdue money are listed first, marked red.
 - **Statement** — *Vendors → vendor*: opening balance, every sale and payment with running balance, closing balance; Excel download.
-- **Reminder** — the WhatsApp button sends a polite message with the balance.
-- **Record payment** — amount, mode (cash / UPI / bank / cheque), UTR.
+- **Send statement** — sends the vendor a WhatsApp message with the balance and a link to the full statement (opening balance, every sale and payment, closing balance, links to each bill). Vendors without the bills module get the simple *Reminder* message instead.
+- **Record payment** — amount (the balance is pre-filled), mode (cash / UPI / bank / cheque), UTR → a numbered **receipt** is made, ready to send.
+- **Make bill** — if the vendor has sales that are not on a bill yet, a yellow bar shows the amount with a *Make bill* button.
 - **Rejections** — the vendor can report rejected quantity from their login (or edit the sale yourself in *All sales*). The amount is recalculated.
-- **Orders** — vendors can place orders; they appear on *Sell* and *Today*. Choosing *Against order* when selling marks the order fulfilled.
+- **Orders** — vendors can place orders (or you record them); they appear on *Sell* under *Open orders* — tap one to add it to the delivery, and the order is marked fulfilled when you save.
+
+### Bills & receipts on WhatsApp
+
+Your buyers do **not** need a login to get a proper bill.
+
+1. **Sell** → tap the vendor → tap a crop, grade, type the quantity → **Add another item** for the next crop → **Save & make bill**. (*Same as last time* fills the vendor's previous bill in one tap.)
+2. The bill opens with its number (e.g. `XYZ/2026-27/0012`), items and total. Tap **Send on WhatsApp** — WhatsApp opens with the vendor's chat and the bill message; press send.
+3. The vendor taps the link and sees the bill: your farm details, items, amount in words, **total due**, a **UPI QR code** with the amount filled in, your bank details. They can **Print / Save PDF**.
+4. **Bills** lists every bill — search by number or vendor, filter *Not sent*, tap a bill to send it again, open it, copy the link or (owner / manager) **Cancel bill**. A cancelled bill's sales go back to *To bill*.
+5. **Weekly / monthly billing** — *Settings → Bills & receipts → When to make the bill: Later*. Deliveries are saved as sales; at the end of the week / month open **Bills → To bill** → **Bill all** (one bill per vendor) → **Send** next to each.
+6. **Receipts** — every payment received gets a receipt number (`XYZ-R/2026-27/0007`); open it from *Bills → Receipts* and send it the same way.
+
+Bill numbers restart every April (financial year). Set the prefix, bill heading (*Bill of Supply*, *Delivery Challan*…), UPI ID, bank details and footer note in **Settings → Bills & receipts**.
 
 ---
 
@@ -211,6 +226,7 @@ Alert limits (EC, pH, temperature, humidity, trap count…) are in *Settings →
 
 *Settings* (owner only):
 - **Farm profile** — company details, how often you sell, grades used (A, B, C…), currency, opening cash, books start date.
+- **Bills & receipts** — when to make the bill (every delivery / later), bill number prefix, bill heading, UPI ID for the pay-QR, bank details, footer note, show the total due on bills.
 - **Modules on/off** — turn off anything your farm does not use (e.g. EC/pH, loans). Screens disappear for everyone; data is kept and returns when switched back on.
 - **Alert limits** — EC, pH, temperature, humidity, trap counts, reminder days.
 - **Users & logins** — **Add login**: choose the role, name, User ID (phone works best) and password. For *Labour* pick the worker; for *Vendor* pick the vendor. After saving, **Send on WhatsApp** shares the login. Edit to reset a password or disable a login.
@@ -221,7 +237,7 @@ Alert limits (EC, pH, temperature, humidity, trap count…) are in *Settings →
 | Manager | Everything except settings |
 | Supervisor | Harvest, sell, attendance, crop logs, tasks, stock — no money reports |
 | Delivery | Sell and harvest only; cannot change prices |
-| Vendor | Their own deliveries, statement, prices and orders |
+| Vendor | Their own deliveries, statement, prices and orders (only if the *Vendor login* module is on) |
 | Labour | Their own check-in, tasks, earnings and payslips |
 
 ---
@@ -242,11 +258,11 @@ Daily: **Labour → Attendance** in the morning → **Harvest** after picking �
 
 ## 15. Delivery person
 
-1. Open **Sell**.
-2. Tap the **crop**, the **grade**, the **vendor**.
-3. Type the **quantity**. The **rate comes from the vendor's price list** and cannot be changed by you; the amount appears.
-4. If the vendor placed an order, tap it under *Against order*.
-5. **Save sale**. The owner's dashboard updates at once. *Sales today* lists what you delivered.
+1. Open **Sell** and tap the **vendor**.
+2. Tap the **crop**, the **grade** and type the **quantity**. The **rate comes from the vendor's price list** and cannot be changed by you.
+3. More crops for the same vendor? Tap **Add another item** and repeat. (Tap an added item to change it, ✕ to remove it.) If the vendor placed an order, tap it under *Open orders*.
+4. **Save & make bill** → **Send on WhatsApp** → press send in WhatsApp. The owner's dashboard updates at once. *Sales today* lists what you delivered.
+5. *Bills* shows the bills you made, if a vendor asks for one again.
 
 If you see *"No price set for this vendor"*, the crop's default price is used — tell the owner.
 
@@ -277,10 +293,15 @@ If you see *"No price set for this vendor"*, the crop's default price is used �
 
 | I want to… | Go to |
 |---|---|
-| Record a sale | Sell, or **+ → Sale** |
+| Record a sale and send the bill | Sell, or **+ → Sale** → Save & make bill → Send on WhatsApp |
+| Send a bill again | Bills → tap the bill → Send on WhatsApp |
+| Bill a vendor for the whole month | Bills → To bill → Make bill (or Bill all) |
+| Send a vendor their statement | Vendors → vendor → Send statement |
+| Send a receipt | Bills → Receipts → tap the payment → Send on WhatsApp |
+| Put my UPI QR / bank details on bills | Settings → Bills & receipts |
 | Record a harvest | Harvest, or **+ → Harvest** |
 | Record a payment I made | Spend, or **+ → Expense** |
-| Record money a vendor paid me | Vendors → vendor → Record payment, or **+ → Payment received** |
+| Record money a vendor paid me | Vendors → vendor → Record payment, or **+ → Payment received** (makes a receipt) |
 | Change a vendor's price | Vendors → vendor → Prices (or More → Vendor price list) |
 | Correct a wrong entry | More → *All sales / All harvests / All expenses* → tap the entry → change → Save (or the bin icon to delete) |
 | See who owes me money | Vendors, or Dashboard → Who owes how long |
@@ -315,3 +336,9 @@ If you see *"No price set for this vendor"*, the crop's default price is used �
 **Numbers look different from my notebook** — check the period at the top and the farm filter; check *More → All sales* for that date range; rejected quantity reduces the sale amount.
 
 **Offline** — the web app shows screens you opened before, but saving needs internet. Enter the record when the signal returns (at the gate).
+
+**"Send on WhatsApp" opens WhatsApp without the vendor's chat** — the vendor has no phone number (or a wrong one). Add it in *Vendors → vendor → Edit*; until then WhatsApp asks you to choose the chat.
+
+**The bill link shows the wrong address** — the server administrator sets `APP_URL` to the public site address (see README → Configuration).
+
+**A sale is on the wrong bill / vendor** — open the bill → *Cancel bill* (owner / manager), correct the sale in *All sales*, then make the bill again from *Bills → To bill*.

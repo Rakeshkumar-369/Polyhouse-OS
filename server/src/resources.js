@@ -214,6 +214,7 @@ const R = {
   sales: {
     title: 'Sales / deliveries', table: 'sales', module: 'sales', read: STAFF, write: STAFF,
     label: "CONCAT('Sale #', {a}.id)", order: 'date DESC, id DESC', dateField: 'date',
+    select: "(SELECT bill_no FROM bills b WHERE b.id={a}.bill_id) AS bill_no",
     filters: ['party_id', 'crop_id', 'farm_id', 'status', 'delivered_by'],
     fields: [
       { name: 'date', label: 'Date', type: 'date', default: 'today', required: true, list: true },
@@ -226,7 +227,8 @@ const R = {
       { name: 'amount', label: 'Amount', type: 'number', readonly: true, list: true },
       { name: 'farm_id', label: 'From farm', type: 'ref', ref: 'farms' },
       { name: 'order_id', label: 'Against order', type: 'ref', ref: 'orders', module: 'orders' },
-      { name: 'invoice_no', label: 'Invoice / slip no.', type: 'text' },
+      { name: 'invoice_no', label: 'Slip / reference no.', type: 'text' },
+      { name: 'bill_no', label: 'Bill no.', type: 'text', readonly: true, virtual: true, list: true },
       { name: 'status', label: 'Status', type: 'select', options: ['delivered', 'accepted', 'disputed'], default: 'delivered', list: true },
       { name: 'vendor_note', label: 'Vendor remark', type: 'text', readonly: true },
       { name: 'notes', label: 'Notes', type: 'text' },
@@ -234,6 +236,9 @@ const R = {
     hooks: {
       async before(d, ctx) {
         if (ctx.op === 'create') d.delivered_by = ctx.user.id;
+        if (ctx.existing?.bill_id && d.party_id && Number(d.party_id) !== ctx.existing.party_id) {
+          throw Object.assign(new Error('This sale is on a bill. Cancel the bill first to change the vendor.'), { status: 409 });
+        }
         // Only the owner / manager may set a price by hand; everyone else gets the vendor price list
         if (!MANAGERS.includes(ctx.user.role)) delete d.rate;
         if (d.rate === undefined && ctx.existing) d.rate = ctx.existing.rate;
@@ -247,8 +252,11 @@ const R = {
         if (rej > qty) throw Object.assign(new Error('Rejected quantity cannot be more than the quantity delivered'), { status: 400 });
         d.amount = Math.round((qty - rej) * Number(d.rate) * 100) / 100;
       },
-      async after(id, d, ctx) {
-        if (d.order_id) await q("UPDATE orders SET status='fulfilled' WHERE org_id=? AND id=?", [ctx.org.id, d.order_id]);
+      async after(id, d, ctx, op) {
+        if (op !== 'delete' && d.order_id) await q("UPDATE orders SET status='fulfilled' WHERE org_id=? AND id=?", [ctx.org.id, d.order_id]);
+        // A bill whose last line was deleted is cancelled automatically
+        const billId = op === 'delete' ? ctx.existing?.bill_id : null;
+        if (billId && !(await one('SELECT id FROM sales WHERE bill_id=? LIMIT 1', [billId]))) await q("UPDATE bills SET status='cancelled' WHERE id=?", [billId]);
       },
     },
   },
@@ -261,8 +269,13 @@ const R = {
       { name: 'amount', label: 'Amount', type: 'number', required: true, list: true },
       { name: 'mode', label: 'Mode', type: 'select', options: PAY_MODES.filter((m) => m !== 'credit'), default: 'cash', list: true },
       { name: 'reference', label: 'Reference / UTR', type: 'text' },
+      { name: 'receipt_no', label: 'Receipt no.', type: 'text', readonly: true, list: true },
       { name: 'notes', label: 'Notes', type: 'text' },
     ],
+    hooks: {
+      // every payment gets the next receipt number (lazy require: billService needs this file)
+      async after(id, d, ctx, op) { if (op === 'create') await require('./billService').ensureReceipt(ctx.org, id); },
+    },
   },
   other_income: {
     title: 'Other income', table: 'other_income', module: 'other_income', read: MANAGERS, write: MANAGERS,

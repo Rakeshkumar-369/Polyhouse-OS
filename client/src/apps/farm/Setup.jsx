@@ -6,7 +6,7 @@ import { useAuth } from '../../lib/auth';
 import { navigate } from '../../lib/router';
 import { t } from '../../lib/i18n';
 import { cls } from '../../lib/format';
-import { Icon, useToast } from '../../ui/kit';
+import { Icon, useToast, Chips } from '../../ui/kit';
 import LangSwitch from '../../ui/LangSwitch';
 
 const COMMON_CROPS = ['Capsicum Red', 'Capsicum Yellow', 'Capsicum Green', 'Cucumber', 'Tomato', 'Cherry Tomato', 'Gerbera', 'Rose', 'Carnation', 'Strawberry', 'Lettuce', 'Broccoli', 'Zucchini', 'Paddy', 'Cotton', 'Chilli', 'Brinjal', 'Okra'];
@@ -31,6 +31,7 @@ export default function Setup() {
   const [vendors, setVendors] = useState([{ name: '', phone: '', credit_days: '', prices: {} }]);
   const [workers, setWorkers] = useState([{ name: '', phone: '', pay_type: 'daily', wage: '' }]);
   const [bills, setBills] = useState({ electricity: '' });
+  const [billing, setBilling] = useState({ when: org.settings.billing?.when || 'each_delivery', upi_id: org.settings.billing?.upi_id || '', portal: org.settings.setup_done ? org.settings.modules?.vendor_portal !== false : false });
   const [made, setMade] = useState({ farms: 0, crops: [], vendors: 0, workers: 0 });
 
   const toggleCrop = (n) => setCrops((c) => (c.some((x) => x.name === n) ? c.filter((x) => x.name !== n) : [...c, { name: n, unit: /Gerbera|Rose|Carnation/.test(n) ? 'bunch' : 'kg', price: '' }]));
@@ -70,6 +71,7 @@ export default function Setup() {
         if (Number(price) > 0) await api.post('/r/price_list', { party_id: p.id, crop_id: cropId, grade: 'A', price });
       }
     }
+    await api.put('/settings', { settings: { billing: { when: billing.when, upi_id: billing.upi_id.trim() }, modules: { billing: true, vendor_portal: billing.portal } } });
     setMade((m) => ({ ...m, vendors: n }));
   });
 
@@ -185,6 +187,13 @@ export default function Setup() {
                 </div>
               ))}
               <button type="button" className="btn-light w-full" onClick={() => setVendors([...vendors, { name: '', phone: '', credit_days: '', prices: {} }])}><Icon name="plus-lg" /> Add another vendor</button>
+              <div className="rounded-2xl bg-brand-50 p-3 space-y-3">
+                <div className="font-semibold text-sm"><Icon name="receipt" /> {t('Bills to vendors')}</div>
+                <Chips options={[{ value: 'each_delivery', label: 'Bill every delivery' }, { value: 'later', label: 'Bill weekly / monthly' }]} value={billing.when} onChange={(v) => setBilling({ ...billing, when: v })} />
+                <Field label="Your UPI ID (vendors scan the QR on the bill to pay)"><input className="input !py-2" placeholder="yourname@okaxis" value={billing.upi_id} onChange={(e) => setBilling({ ...billing, upi_id: e.target.value })} /></Field>
+                <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="h-5 w-5 mt-0.5 accent-brand-600" checked={billing.portal} onChange={(e) => setBilling({ ...billing, portal: e.target.checked })} />
+                  <span>My vendors will also log in to the app <span className="text-slate-500">(leave off if you just send them bills on WhatsApp)</span></span></label>
+              </div>
               <Nav onNext={saveVendors} />
             </>
           )}

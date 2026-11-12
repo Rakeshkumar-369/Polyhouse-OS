@@ -1,4 +1,5 @@
-// Vendor dashboard: who owes what, statement with running balance, record payment, vendor price list, WhatsApp reminder
+// Vendor dashboard: who owes what, statement with running balance, record payment (+ receipt), vendor price list,
+// WhatsApp reminder, send statement link, bill unbilled sales
 import { useState } from 'react';
 import { api, useApi } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -8,25 +9,8 @@ import { Card, Icon, Modal, PageHeader, Spinner, Badge, Empty, useToast, Tabs } 
 import ResourcePage from '../../ui/ResourcePage';
 import { ResourceForm } from '../../ui/Form';
 import PeriodPicker from '../../ui/PeriodPicker';
-
-function PaymentForm({ party, onDone }) {
-  const { cur } = useAuth();
-  const toast = useToast();
-  const [f, setF] = useState({ date: todayISO(), amount: '', mode: 'upi', reference: '' });
-  const save = async (e) => {
-    e.preventDefault();
-    try { await api.post('/r/payments_received', { ...f, party_id: party.party_id }); toast(`${money(f.amount, cur)} recorded`); onDone(); } catch (e2) { toast(e2.message, 'error'); }
-  };
-  return (
-    <form onSubmit={save} className="grid grid-cols-2 gap-3 rounded-2xl bg-brand-50 p-3">
-      <div><label className="label">Amount received</label><input className="input" type="number" step="any" inputMode="decimal" required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></div>
-      <div><label className="label">{t('Mode')}</label><select className="input" value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })}>{['cash', 'upi', 'bank', 'cheque'].map((m) => <option key={m} value={m}>{m.toUpperCase()}</option>)}</select></div>
-      <div><label className="label">{t('Date')}</label><input className="input" type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
-      <div><label className="label">UTR / ref</label><input className="input" value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} /></div>
-      <button className="btn-primary col-span-2"><Icon name="cash-coin" /> Record payment</button>
-    </form>
-  );
-}
+import PaymentForm from '../../ui/PaymentForm';
+import BillSheet from '../../ui/BillSheet';
 
 function EditVendor({ id, onDone }) {
   const { meta } = useAuth();
@@ -35,9 +19,17 @@ function EditVendor({ id, onDone }) {
 }
 
 function Statement({ party, onChanged }) {
-  const { cur, meta } = useAuth();
+  const { cur, meta, on } = useAuth();
+  const toast = useToast();
   const [period, setPeriod] = useState(initialPeriod('last_30'));
   const [tab, setTab] = useState('statement');
+  const [doc, setDoc] = useState(null);
+  const unbilled = useApi(on('billing') ? '/bills/unbilled' : null);
+  const ub = (unbilled.data || []).find((u) => String(u.party_id) === String(party.party_id));
+  const sendStatement = async () => { try { setDoc(await api.get(`/statement-link/${party.party_id}`, { from: period.from, to: period.to })); } catch (e) { toast(e.message, 'error'); } };
+  const makeBill = async () => {
+    try { const r = await api.post('/bills/from-sales', { party_id: party.party_id, from: ub.first_date.slice(0, 10), to: todayISO() }); unbilled.reload(); if (r.bills[0]) setDoc(r.bills[0]); } catch (e) { toast(e.message, 'error'); }
+  };
   const { data: st, reload } = useApi(`/reports/vendor/${party.party_id}`, { from: period.from, to: period.to });
   const phone = (party.phone || '').replace(/\D/g, '');
   const wa = `https://wa.me/${phone.length === 10 ? '91' + phone : phone}?text=${encodeURIComponent(`Namaste ${party.name}, your balance with ${meta.org.name} is ${money(party.balance, cur)}${party.overdue ? ` (overdue ${money(party.overdue, cur)})` : ''}. Kindly arrange payment. Thank you.`)}`;
@@ -50,9 +42,22 @@ function Statement({ party, onChanged }) {
       </div>
       <div className="flex flex-wrap gap-2 items-center">
         <Tabs tabs={[['statement', 'Statement'], ['payment', 'Record payment'], ['prices', 'Prices'], ['edit', 'Edit']]} value={tab} onChange={setTab} />
-        {phone && <a className="chip-off" href={wa} target="_blank" rel="noreferrer"><Icon name="whatsapp" className="text-green-600" /> Reminder</a>}
+        {phone && !on('billing') && <a className="chip-off" href={wa} target="_blank" rel="noreferrer"><Icon name="whatsapp" className="text-green-600" /> Reminder</a>}
+        {on('billing') && <button className="chip-off" onClick={sendStatement}><Icon name="whatsapp" className="text-green-600" /> {t('Send statement')}</button>}
       </div>
-      {tab === 'payment' && <PaymentForm party={party} onDone={() => { setTab('statement'); reload(); onChanged(); }} />}
+      {ub && !doc && (
+        <div className="flex items-center justify-between gap-2 rounded-2xl bg-amber-50 p-3 text-sm">
+          <span>{ub.line_count} {t('sale(s) not on a bill')} · <b>{money(ub.amount, cur)}</b></span>
+          <button className="btn-primary !py-2" onClick={makeBill}><Icon name="receipt" /> {t('Make bill')}</button>
+        </div>
+      )}
+      {doc && (
+        <div className="rounded-2xl border border-slate-200 p-3">
+          <div className="flex justify-end -mb-2"><button className="h-8 w-8 grid place-items-center rounded-full hover:bg-slate-100" onClick={() => setDoc(null)} aria-label="Close"><Icon name="x-lg" /></button></div>
+          <BillSheet doc={doc} />
+        </div>
+      )}
+      {tab === 'payment' && <PaymentForm party={party} amount={party.balance > 0 ? String(party.balance) : ''} onSaved={() => { reload(); onChanged(); }} onClose={() => setTab('statement')} />}
       {tab === 'prices' && <ResourcePage resKey="price_list" presetFilters={{ party_id: party.party_id }} hideHeader />}
       {tab === 'edit' && <EditVendor id={party.party_id} onDone={onChanged} />}
       {tab === 'statement' && (

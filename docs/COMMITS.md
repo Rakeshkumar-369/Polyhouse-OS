@@ -6,7 +6,36 @@ All work is on the **`main`** branch, committed as **Rakeshkumar-369 &lt;k.rakes
 
 ## Release history
 
-### 3.0 — Mobile app, smart suggestions, simpler navigation, hardening (latest commit on `main`)
+### 4.0 — Bills & receipts on WhatsApp, multi-item delivery, easier daily work (latest commit on `main`)
+
+**New**
+- **Bills** — every delivery (or every week / month) becomes a numbered bill, `XYZ/2026-27/0001`, restarting each April. **Send on WhatsApp** in one tap: the vendor's chat opens with the bill message and a link. The link opens a printable bill **without any login** — farm details, items, amount in words, total due, **UPI QR with the amount**, bank details, *Print / Save PDF*. Vendors no longer need a login (vendor login is now an optional module).
+- **Receipts** — every payment received gets a receipt number (`XYZ-R/2026-27/0001`) and the same one-tap send.
+- **Statements** — *Vendors → Send statement*: running statement link on WhatsApp with links to each bill.
+- **Bills screen** (web + mobile) — all bills with search, period and *Not sent* filter; **To bill** makes one bill per vendor for unbilled sales (*Bill all*); **Receipts**; owner / manager can cancel a bill (its sales can be billed again).
+- **Multi-item Sell** — vendor first, then *Add another item* for each crop / grade, *Same as last time*, open orders added with one tap, running total, **Save & make bill**.
+- **Settings → Bills & receipts** — bill every delivery or later, number prefix, bill heading, UPI ID, bank details, footer, show total due.
+- **Setup wizard** asks how you bill, your UPI ID and whether vendors will log in.
+- Dashboard: **Share today's summary** on WhatsApp; reminder bar for sales not yet on a bill.
+- Mobile app: the same Sell → bill → WhatsApp flow, Bills screen with tabs, receipt after payment, send statement, share today's summary.
+
+**Easier to use**
+- *Payment received* opens straight on the receipt form with the vendor's balance pre-filled.
+- Phone layout: fixed pages that were wider than the screen (dashboard crop cycles, Sell, Spend).
+- Delivery staff see *Bills* as a bottom tab; vendor / labour roles are hidden from *Add login* while their module is off.
+
+**Fixed (found in the code review)**
+- A recurring payment could be posted twice when two dashboards loaded at the same moment — now claimed atomically before posting.
+- Attendance accepted future dates and unknown statuses — now refused.
+- Deleting a sale tried to fulfil its order — now only on create / edit.
+
+**Server / database**
+- New tables `bills`, `doc_counters`; new columns `sales.bill_id`, `payments_received.receipt_no` / `token`, `parties.share_token` (added automatically on start).
+- New routes `/api/bills…`, `/api/receipts/:id`, `/api/statement-link/:id`, `/api/share/today`, public `/api/public/bill|receipt|statement/:token`.
+- Optional `APP_URL` setting for the address used in links.
+- `npm run scenarios` now 85 checks (32 new for bills, receipts, statements and input checks); mobile widget test for the bill sheet.
+
+### 3.0 — Mobile app, smart suggestions, simpler navigation, hardening
 
 **New**
 - **Flutter mobile app** (`mobile/`) for Android and iOS — every role: owner dashboard, smart suggestions with season calendar, Sell, Harvest, Spend, Reports, Vendors (statement, payment, WhatsApp reminder, prices), Labour (attendance, wage run), all 30 record lists with add / edit / delete, Settings (modules, team logins), vendor app, labour app, super admin. English / Telugu, brand app icon, unit + widget tests.

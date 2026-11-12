@@ -20,6 +20,7 @@ const MODULES = [
   { key: 'recurring', label: 'Recurring payments', group: 'Spend', desc: 'Rent, electricity, EMI posted automatically when due' },
   { key: 'harvest', label: 'Harvest & grading', group: 'Sell', desc: 'Daily pluck by crop, grade and bay' },
   { key: 'sales', label: 'Sales & vendors', group: 'Sell', desc: 'Sell to vendors at vendor-specific prices, payments & dues' },
+  { key: 'billing', label: 'Bills & receipts', group: 'Sell', desc: 'Numbered bills and payment receipts, sent to vendors on WhatsApp in one tap' },
   { key: 'orders', label: 'Vendor orders', group: 'Sell', desc: 'Vendors / owner record orders; delivery fulfils them' },
   { key: 'vendor_portal', label: 'Vendor login', group: 'Sell', desc: 'Vendors see deliveries, accept/reject, dues and prices' },
   { key: 'finance', label: 'P&L & balance sheet', group: 'Decide', desc: 'Profit & loss, cost per kg, balance sheet for any date' },
@@ -56,6 +57,16 @@ const DEFAULT_SETTINGS = {
   grades: ['A', 'B', 'C'],
   opening_cash: 0,
   books_start: null,              // date from which cash is tracked
+  // Bills & receipts (Settings > Bills & receipts)
+  billing: {
+    prefix: '',                     // bill number prefix, blank = initials of the farm name
+    title: 'Bill of Supply',        // fresh produce is GST exempt -> "Bill of Supply"
+    upi_id: '',                     // shown on bills with a pay-by-UPI QR code
+    bank_details: '',
+    footer: 'Thank you for your business.',
+    when: 'each_delivery',          // each_delivery = a bill for every delivery; later = bill weekly / monthly
+    show_balance: true,             // print the vendor's total outstanding on bills
+  },
   thresholds: {
     ec_min: 1.2, ec_max: 2.0, ph_min: 5.8, ph_max: 6.5,
     drain_ec_margin: 0.5,          // drain EC above feed EC by this for 3 logs => salt build-up

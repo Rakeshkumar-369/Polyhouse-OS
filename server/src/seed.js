@@ -192,6 +192,22 @@ async function ins(table, row) { const r = await q(`INSERT INTO ${table} SET ?`,
   await ins('tasks', { org_id: o, date: day(0), farm_id: f1, bay_id: bays[1].id, title: 'De-leafing in Bay 2', task_type: 'de-leafing', worker_id: workers[0] });
   await ins('tasks', { org_id: o, date: day(0), farm_id: f1, title: 'Clean disc filters', task_type: 'cleaning', worker_id: workers[1] });
 
+  // ---------- bills & receipts (vendors get bills on WhatsApp; most do not log in) ----------
+  await q(`UPDATE organizations SET address=?, settings=JSON_SET(settings, '$.billing', JSON_OBJECT('prefix','XYZ','title','Bill of Supply','upi_id','xyzpolyhouse@okaxis',
+    'bank_details','SBI Shankarpally · A/c 3021 4455 6677 · IFSC SBIN0012345','footer','Thank you! Goods once accepted will not be taken back after 24 hours.','when','each_delivery','show_balance',true)) WHERE id=?`,
+  ['Survey No. 214, Shankarpally Road', o]);
+  const B = require('./billService');
+  const billOrg = { id: o, name: 'XYZ Polyhouse', settings: { billing: { prefix: 'XYZ' } } };
+  const owner = await one("SELECT id FROM users WHERE login='xyz'");
+  // older history: one bill per vendor per month; last 60 days: one bill per delivery; today's sales left to bill
+  const monthly = await q(`SELECT party_id, MAX(date) d, GROUP_CONCAT(id) ids FROM sales WHERE org_id=? AND date <= ? GROUP BY party_id, DATE_FORMAT(date, '%Y-%m') ORDER BY d, party_id`, [o, day(61)]);
+  const daily = await q('SELECT party_id, date d, GROUP_CONCAT(id) ids FROM sales WHERE org_id=? AND date > ? AND date < ? GROUP BY party_id, date ORDER BY date, party_id', [o, day(61), day(0)]);
+  for (const g of [...monthly, ...daily]) {
+    const bill = await B.createBill(billOrg, owner, { party_id: g.party_id, date: g.d, sale_ids: g.ids.split(',').map(Number) });
+    await q('UPDATE bills SET sent_count=1, sent_at=? WHERE id=?', [g.d + ' 19:30:00', bill.id]);
+  }
+  for (const p of await q('SELECT id FROM payments_received WHERE org_id=? ORDER BY date, id', [o])) await B.ensureReceipt(billOrg, p.id);
+
   const hash = await bcrypt.hash('demo123', 10);
   await q("INSERT INTO users (org_id,name,login,password_hash,role) VALUES (?,?,?,?,'supervisor'),(?,?,?,?,'delivery')", [o, 'Venkatesh (Supervisor)', 'super1', hash, o, 'Raju (Delivery)', 'delivery1', hash]);
   await q("INSERT INTO users (org_id,name,login,password_hash,role,party_id) VALUES (?,?,?,?,'vendor',?)", [o, 'FreshMart Retail', 'vendor1', hash, buyers[0]]);

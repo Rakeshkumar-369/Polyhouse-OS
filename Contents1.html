@@ -15,7 +15,8 @@
    1. Super admin (platform owner) creates the customer organisation together
       with the owner's admin User ID + password, and sends it on WhatsApp.
    2. The owner logs in -> 5-step setup wizard (farm, crops, vendors & prices,
-      workers & pay, monthly bills) -> starts recording immediately.
+      how to bill + UPI ID + vendor login yes/no, workers & pay, monthly bills)
+      -> starts recording immediately.
    3. The owner creates logins for supervisor / delivery / vendor / labour and
       switches modules on or off in Settings.
 
@@ -24,10 +25,15 @@
    admin       owner: everything incl. settings, module toggles, users
    manager     everything except settings
    supervisor  harvest, sell, attendance, EC/pH, climate, scouting, sprays, tasks (no money reports)
-   delivery    sell (price is applied from the vendor price list) + harvest
-   vendor      own deliveries (confirm / reject), statement, dues, prices, orders
+   delivery    sell several items (price from the vendor price list) -> bill -> WhatsApp; harvest
+   vendor      (optional module) own deliveries (confirm / reject), statement, dues, prices, orders
    labour      check-in/out, tasks, earnings, attendance, payslips, spray warnings
 
+ BILLS       Every delivery (or week / month) becomes a numbered bill (PREFIX/2026-27/0001),
+             every payment a receipt (PREFIX-R/...). One tap sends it on WhatsApp with a
+             link; the vendor opens /b/<token> without login: items, amount in words,
+             total due, UPI QR, Print / Save PDF. Vendors never need to log in.
+             (server/src/billService.js, routes/billing.js, client apps/public/Doc.jsx)
  LANGUAGES   English + Telugu (client/src/lib/i18n.js, mobile/lib/core/i18n.dart)
  SMART       Smart suggestions learn each crop's best months / temperature range /
  SUGGESTIONS price peaks from the farm's own history (server/src/suggestionsService.js)
@@ -35,7 +41,7 @@
  TECH        React 18 + Vite + Tailwind (hand-written SVG charts, 60-line router,
              inline Bootstrap Icons) | Flutter 3 (mobile) | Node.js + Express | MySQL 8.
              Multi-tenant: every business table has org_id.
- HOSTING     Render + TiDB Cloud (free) or any VM with Docker - see README.md section 10
+ HOSTING     Render + TiDB Cloud (free) or any VM with Docker - see README.md section 11
 ================================================================================
 -->
 <html lang="en">
@@ -71,7 +77,10 @@
 <tr><td>Add / rename an on-off module</td><td><code>server/src/config.js</code> <code>MODULES</code> (+ defaults per customer type in <code>CUSTOMER_TYPES</code>).</td></tr>
 <tr><td>Change who can see / edit something</td><td>resources.js <code>read</code>/<code>write</code>; custom routes use <code>allow(...)</code>; menus in <code>client/src/lib/nav.js</code> (<code>roles</code>).</td></tr>
 <tr><td>Change smart suggestions (wording, how many months needed, best-range rule, transplant advice)</td><td><code>server/src/suggestionsService.js</code> — <code>MIN_MONTHS</code> (~16), the NOW / UPCOMING / SEASON / AVOID / PRICE blocks inside <code>suggestions()</code> (~24), merging of same-month messages near the end. Web page: <code>client/src/apps/farm/Suggestions.jsx</code>; mobile: <code>mobile/lib/screens/suggestions_screen.dart</code>.</td></tr>
-<tr><td>Change the "+ New entry" list</td><td>Web: <code>QUICK</code> in <code>client/src/lib/nav.js</code> (~20). Mobile: <code>quickItems</code> in <code>mobile/lib/screens/shell.dart</code> (~102).</td></tr>
+<tr><td>Change the bill / receipt / statement (wording of the WhatsApp message, what the vendor sees)</td><td>WhatsApp text: <code>billData()</code> (~73), <code>receiptData()</code> (~172), <code>statementData()</code> (~196) in <code>server/src/billService.js</code>. Printed page: <code>client/src/apps/public/Doc.jsx</code> (<code>Bill</code> ~56, <code>Receipt</code> ~100, <code>Statement</code> ~118, UPI QR <code>UpiQr</code> ~9). Default heading / footer: <code>DEFAULT_SETTINGS.billing</code> in <code>server/src/config.js</code>; the owner edits them in <i>Settings → Bills &amp; receipts</i> (<code>Billing</code> ~92 in <code>client/src/apps/farm/Settings.jsx</code>).</td></tr>
+<tr><td>Change bill numbering (prefix, financial year, digits)</td><td><code>fyOf()</code> (~25), <code>prefixOf()</code> (~31), <code>nextNo()</code> (~39) in <code>server/src/billService.js</code>. Counters live in table <code>doc_counters</code> (one row per org / kind / FY).</td></tr>
+<tr><td>Change the "send" panel (buttons after a bill is made)</td><td>Web: <code>client/src/ui/BillSheet.jsx</code> (<code>ShareButtons</code> ~11). Mobile: <code>DocSheet</code> (~31) in <code>mobile/lib/screens/bills_screen.dart</code>.</td></tr>
+<tr><td>Change the "+ New entry" list</td><td>Web: <code>QUICK</code> in <code>client/src/lib/nav.js</code> (~20). Mobile: <code>quickItems</code> in <code>mobile/lib/screens/shell.dart</code> (~107).</td></tr>
 <tr><td>Change input checks (negative numbers, dates, choices)</td><td><code>clean()</code> in <code>server/src/routes/crud.js</code> (~53); allow negatives for one field with <code>allowNegative: true</code> in resources.js. Business checks (rejected ≤ delivered, paid ≤ bill, deductions ≤ pay) are in the resource <code>hooks.before</code>.</td></tr>
 <tr><td>Change what blocks a delete</td><td>delete route in <code>server/src/routes/crud.js</code> (~155): counts records in other resources that point to it.</td></tr>
 <tr><td>Change sale price logic</td><td>resources.js <code>lookupPrice()</code> (~33) and <code>sales.hooks.before</code> (~214).</td></tr>
@@ -95,6 +104,7 @@
 <tr><td>Mobile: change a screen</td><td>See <a href="#mobile">section 5</a> — one file per screen in <code>mobile/lib/screens/</code>.</td></tr>
 <tr><td>Mobile: preset the server address / app name / icon</td><td>Server: build with <code>--dart-define=API_URL=https://…</code> (read in <code>mobile/lib/core/session.dart</code> ~9). Name: <code>android:label</code> in <code>mobile/android/app/src/main/AndroidManifest.xml</code>, <code>CFBundleDisplayName</code> in <code>mobile/ios/Runner/Info.plist</code>. Icon: replace <code>mobile/assets/icon.png</code> then <code>dart run flutter_launcher_icons</code>.</td></tr>
 <tr><td>Add a test</td><td>API: <code>scripts/smoke.js</code> (every screen) or <code>scripts/scenarios.js</code> (edge cases). Mobile: <code>mobile/test/app_test.dart</code>.</td></tr>
+<tr><td>Public address in bill links</td><td><code>APP_URL</code> in <code>.env</code> (used by <code>baseUrl</code> in <code>server/src/routes/billing.js</code> and <code>routes/public.js</code>).</td></tr>
 <tr><td>Hosting settings</td><td><code>.env.example</code>, <code>render.yaml</code>, <code>Dockerfile</code>, <code>docker-compose.yml</code>; DB/TLS handling in <code>server/src/env.js</code> and <code>db.js</code>.</td></tr>
 </table>
 
@@ -108,7 +118,7 @@ Dockerfile               one image: builds the web app, runs the API on :4000
 docker-compose.yml       app + MySQL 8 with volumes (one-command server install)
 render.yaml              Render Blueprint (free plan)
 scripts/smoke.js         API test across all roles (~110 checks)
-scripts/scenarios.js     edge-case tests (~53): prices, edits, deletes, permissions, isolation, suggestions
+scripts/scenarios.js     edge-case tests (~85): prices, edits, deletes, permissions, isolation, bills &amp; receipts, suggestions
 docs/USER_MANUAL.md      how each role uses the web and mobile app
 docs/COMMITS.md          release history and how to commit / push
 scripts/build-icons.js   regenerates client/src/ui/icons.js
@@ -117,24 +127,26 @@ server/src/
   app.js                 Express: helmet (CSP), gzip, routes, static hosting with 1-year cache
   env.js                 loads .env, parses DATABASE_URL, defaults
   db.js                  MySQL pool, q(), one(), TLS (DB_SSL) for cloud MySQL
-  schema.sql             all 33 tables
+  schema.sql             all 35 tables (bills, doc_counters for bill / receipt numbers)
   migrate.js             ensureSchema(): CREATE IF NOT EXISTS, COLUMN_UPGRADES, first super admin
   reset.js               drop all tables, recreate, load demo
-  seed.js                demo org "XYZ Polyhouse" (60 days relative to today)
+  seed.js                demo org "XYZ Polyhouse" (14 months relative to today, bills &amp; receipts)
   config.js              MODULES, CUSTOMER_TYPES, DEFAULT_CATEGORIES, DEFAULT_SETTINGS, role groups
   orgService.js          createOrg(): org + default categories + admin login
   resources.js           RESOURCE REGISTRY (fields, permissions, UI metadata, hooks)
   reportService.js       every dashboard / report number
   suggestionsService.js  smart suggestions (season learning from yield x temperature x price)
+  billService.js         bills, receipts, statements: numbering per FY, WhatsApp text + link, public data
   middleware/auth.js     auth (JWT), allow(), moduleOn(), limit() rate limiter
   routes/auth.js         login, change password, language
-  routes/public.js       demo request (website), demo accounts (login page)
+  routes/public.js       demo request (website), demo accounts (login page), public bill / receipt / statement by token
   routes/superadmin.js   customers, reset, impersonate, suspend, leads
   routes/settings.js     org settings + module toggles, users &amp; logins
   routes/crud.js         /api/meta + generic list/options/create/update/delete
   routes/ops.js          price lookup, produce stock, locks, attendance sheet, wages, recurring, uploads
   routes/reports.js      dashboard, summary, P&amp;L, balance, receivables, vendor statement, day book, suggestions, alerts
   routes/portal.js       vendor app API, labour app API
+  routes/billing.js      bills list / make / from-sales / sent / cancel, receipts, statement link, today's summary
 server/uploads/          bill photos &amp; documents (served only to the same organisation)
 client/
   index.html             shell, manifest link
@@ -158,8 +170,11 @@ client/
   src/ui/PeriodPicker.jsx the period dropdown
   src/ui/Shell.jsx       sidebar (folding groups) / top bar (back button) / bottom tabs with + / QuickAdd sheet / offline banner / MorePage (search)
   src/ui/LangSwitch.jsx  English ⇄ తెలుగు button
-  src/apps/public/       Landing.jsx (website), Login.jsx
-  src/apps/farm/         Dashboard, Sell, Harvest, Spend, Reports, Vendors, Labour, Suggestions, Alerts, Settings, Setup, Account
+  src/ui/BillSheet.jsx   bill / receipt / statement summary + Send on WhatsApp, Open / PDF, Share link, Cancel
+  src/ui/PaymentForm.jsx payment received -> receipt ready to send
+  src/lib/share.js       openWhatsApp(), shareOrCopy(), copyText()
+  src/apps/public/       Landing.jsx (website), Login.jsx, Doc.jsx (printable bill / receipt / statement at /b/ /r/ /s/)
+  src/apps/farm/         Dashboard, Sell, Bills, Harvest, Spend, Reports, Vendors, Labour, Suggestions, Alerts, Settings, Setup, Account
   src/apps/super/        SuperAdmin.jsx
   src/apps/vendor/       VendorApp.jsx (+ PortalHeader shared with labour)
   src/apps/labour/       LabourApp.jsx
@@ -214,24 +229,28 @@ mobile/                  Flutter app (Android / iOS) - see section 5
 <tr><td>routes/portal.js</td><td>~17 vendor data · ~31 confirm / reject (7-day window) · ~44 place order · ~53 cancel · ~63 labour data · ~79 check-in/out · ~91 task done.</td></tr>
 <tr><td>routes/superadmin.js</td><td>~12 list · ~24 create · ~29 edit · ~38 reset password · ~48 open as owner · ~54 suspend · ~61 leads.</td></tr>
 <tr><td>routes/settings.js</td><td>~11/15 settings (merges modules, thresholds, setup_done) · ~37–82 users.</td></tr>
-<tr><td>routes/public.js · routes/auth.js</td><td>Demo request &amp; demo accounts; login (failed-attempt limit), change password, language.</td></tr>
+<tr><td>routes/public.js · routes/auth.js</td><td>Demo request &amp; demo accounts; ~38 bill · ~47 receipt · ~55 statement by token (no login, rate-limited); login (failed-attempt limit), change password, language.</td></tr>
+<tr><td>routes/billing.js</td><td>~25 bills list (period, vendor, status, search) · ~40 unbilled per vendor · ~45 make bill from items · ~52 bill unbilled sales (one per vendor) · ~59 one bill · ~63 mark sent · ~69 cancel (sales released) · ~76 receipt · ~80 statement link · ~88 today's summary text.</td></tr>
+<tr><td>billService.js</td><td>~25 fyOf · ~31 prefixOf · ~39 nextNo (atomic counter) · ~48 waLink (91XXXXXXXXXX) · ~55 orgHeader · ~73 billData (lines, totals, balance, WhatsApp text) · ~119 createBill (sales created through the normal sales rules, rolled back on error, max 50 lines) · ~147 billUnbilled · ~161 ensureReceipt · ~172 receiptData · ~189 ensurePartyToken · ~196 statementData.</td></tr>
 </table>
 
 <h2 id="client">4. Client screens</h2>
 <table>
 <tr><th>File</th><th>Route / who</th><th>What it shows</th></tr>
 <tr><td>apps/farm/Dashboard.jsx</td><td>/ (owner, manager)</td><td><code>Setup</code> checklist (~80), finding banner, <code>QuickActions</code> (~17), smart-suggestions card, 6 KPI tiles with sparklines, sales vs expenses, Needs attention, cost vs price, price trend, crop table, who owes how long, best-paying vendor, where money went, crop cycles vs target, best selling days, labour tiles, <code>Today</code> (~30). Supervisor: <code>FieldHome</code> (~101).</td></tr>
-<tr><td>apps/farm/Sell.jsx</td><td>/sell</td><td>Crop → grade → vendor → qty; auto price (only owner/manager can edit); open orders; today's sales; produce stock.</td></tr>
+<tr><td>apps/farm/Sell.jsx</td><td>/sell</td><td>Vendor → items (crop, grade, qty, <i>Add another item</i>) → <b>Save &amp; make bill</b> (POST /bills) or plain sales when billing is set to <i>later</i>; auto price (only owner/manager can edit); <i>Same as last time</i>; open orders added with one tap; today's sales; produce stock; bill sheet after save.</td></tr>
+<tr><td>apps/farm/Bills.jsx</td><td>/bills (?tab=tobill, ?tab=receipts&amp;new=1)</td><td><code>BillList</code> (~25: period, search, not-sent filter, open → BillSheet), <code>ToBill</code> (~68: unbilled per vendor, Make bill / Bill all, Send per bill), <code>Receipts</code> (~115: payments with receipt numbers, Payment received form).</td></tr>
+<tr><td>apps/public/Doc.jsx</td><td>/b/:token · /r/:token · /s/:token</td><td>What the vendor sees from WhatsApp — no login: bill, receipt, statement; UPI QR with amount, amount in words, Print / Save PDF, Share.</td></tr>
 <tr><td>apps/farm/Harvest.jsx</td><td>/harvest</td><td>Crop / grade / qty / culls / farm / bay / picker; spray-lock banner + owner override.</td></tr>
 <tr><td>apps/farm/Spend.jsx</td><td>/spend</td><td>Category chips, stock item qty × rate, credit purchase, bill photo, recent expenses.</td></tr>
 <tr><td>apps/farm/Reports.jsx</td><td>/reports</td><td>Tabs (<code>TABS</code> ~12): Overview, Crops, Vendors (+ price matrix, price trend), Sales sheet, Expenses, Farms, P&amp;L, Balance sheet, Day book; Excel + print. <code>Table</code> helper ~15.</td></tr>
-<tr><td>apps/farm/Vendors.jsx</td><td>/vendors</td><td>Vendor cards by overdue; modal: statement with running balance, record payment, price list, edit, WhatsApp reminder.</td></tr>
+<tr><td>apps/farm/Vendors.jsx</td><td>/vendors</td><td>Vendor cards by overdue; modal: statement with running balance, <b>Send statement</b> (WhatsApp), record payment → receipt, <i>Make bill</i> for unbilled sales, price list, edit.</td></tr>
 <tr><td>apps/farm/Labour.jsx</td><td>/labour</td><td><code>Attendance</code> (P/½/A/L), <code>WageRun</code> (calculate &amp; pay), workers, advances.</td></tr>
 <tr><td>apps/farm/Suggestions.jsx</td><td>/suggestions</td><td><code>SeasonCalendar</code> (~42: crop × month heat map + temperature row), tabs by kind, <code>SuggestionList</code> (~19, also on the dashboard), labels in <code>KIND</code>.</td></tr>
 <tr><td>ui/Shell.jsx · lib/nav.js</td><td>all screens</td><td>Menu (<code>MAIN</code>, <code>GROUPS</code>), folding groups (<code>SideGroup</code> ~24), <b>+ New entry</b> sheet (<code>QuickAdd</code> ~41 with <code>QUICK</code>), back button, offline banner, phone tabs (<code>mobileTabs</code>), More with search (<code>MorePage</code> ~143).</td></tr>
 <tr><td>apps/farm/Alerts.jsx</td><td>/alerts</td><td><code>AlertList</code> (also used on dashboard), colours in <code>LEVEL</code>.</td></tr>
-<tr><td>apps/farm/Settings.jsx</td><td>/settings (admin)</td><td><code>Profile</code> (~19), <code>Modules</code> toggles (~52), <code>Thresholds</code> (~77), <code>Users</code> with WhatsApp share (~92); run wizard again.</td></tr>
-<tr><td>apps/farm/Setup.jsx</td><td>/setup (admin first login)</td><td>5-step wizard; creates farm, rent recurring, crops, vendors + prices, workers, electricity recurring; sets <code>setup_done</code>.</td></tr>
+<tr><td>apps/farm/Settings.jsx</td><td>/settings (admin)</td><td><code>Profile</code> (~19), <code>Modules</code> toggles (~52), <code>Thresholds</code> (~77), <code>Billing</code> (~92: when to bill, prefix, heading, UPI ID, bank details, footer), <code>Users</code> with WhatsApp share; run wizard again.</td></tr>
+<tr><td>apps/farm/Setup.jsx</td><td>/setup (admin first login)</td><td>5-step wizard; creates farm, rent recurring, crops, vendors + prices (+ how to bill, UPI ID, vendor login on/off), workers, electricity recurring; sets <code>setup_done</code>.</td></tr>
 <tr><td>apps/farm/Account.jsx</td><td>/account</td><td>Language, <code>PasswordForm</code> (also used by super admin).</td></tr>
 <tr><td>apps/super/SuperAdmin.jsx</td><td>super admin</td><td>Stats, create customer + login, credentials card (WhatsApp / copy / open), customers, leads → create account, my account.</td></tr>
 <tr><td>apps/vendor/VendorApp.jsx</td><td>vendor</td><td>Deliveries + confirm modal, statement, prices, orders.</td></tr>
@@ -249,18 +268,20 @@ mobile/                  Flutter app (Android / iOS) - see section 5
 <tr><td>lib/core/format.dart · i18n.dart</td><td>₹ with Indian grouping, dates, Day/Week/Month/FY <code>periods()</code>; English → Telugu words (<code>tr()</code>).</td></tr>
 <tr><td>lib/ui/theme.dart · widgets.dart</td><td>Brand colours &amp; Material 3 theme; <code>AppCard</code>, <code>StatTile</code>, <code>TileGrid</code>, <code>ChipPicker</code>, <code>Loader</code> (spinner / error / pull-to-refresh), <code>BarsChart</code>, <code>ShareBar</code>, <code>PeriodDropdown</code>, <code>toast</code>.</td></tr>
 <tr><td>lib/screens/login_screen.dart</td><td>Server address, User ID, password, language, demo-account chips.</td></tr>
-<tr><td>lib/screens/shell.dart</td><td>Menu definitions (<code>mainMenu</code> ~40, <code>menuGroups</code> ~52, <code>quickItems</code> ~102), role-based bottom tabs, the <b>+</b> quick-entry sheet, <code>MoreScreen</code> with search.</td></tr>
-<tr><td>lib/screens/dashboard_screen.dart</td><td>Owner dashboard (finding, tiles, suggestions, chart, alerts, crops, dues ageing, best vendor, today) and supervisor's today view; <code>AlertList</code>, <code>AlertsScreen</code>.</td></tr>
+<tr><td>lib/screens/shell.dart</td><td>Menu definitions (<code>mainMenu</code> ~44, <code>menuGroups</code> ~57, <code>quickItems</code> ~107; <code>off:</code> shows an item only while a module is off), role-based bottom tabs, the <b>+</b> quick-entry sheet, <code>MoreScreen</code> with search.</td></tr>
+<tr><td>lib/screens/dashboard_screen.dart</td><td>Owner dashboard (Share today's summary, sales-not-billed banner, finding, tiles, suggestions, chart, alerts, crops, dues ageing, best vendor, today) and supervisor's today view; <code>AlertList</code>, <code>AlertsScreen</code>.</td></tr>
 <tr><td>lib/screens/suggestions_screen.dart</td><td>Smart suggestions list and season calendar.</td></tr>
-<tr><td>lib/screens/entry_screens.dart</td><td><code>SellScreen</code> (~41, live amount, vendor price, orders), <code>HarvestScreen</code> (~195, spray lock + owner override), <code>SpendScreen</code> (~313).</td></tr>
+<tr><td>lib/screens/sell_screen.dart</td><td><code>SellScreen</code>: vendor → items (Add another item, tap to change, ✕ to remove) → Save &amp; make bill → <code>showDocSheet</code>; Same as last time; open orders; sales today.</td></tr>
+<tr><td>lib/screens/bills_screen.dart</td><td><code>showDocSheet</code> / <code>DocSheet</code> (~20/31: Send on WhatsApp, Open / PDF, Copy link, Cancel bill), <code>recordPayment</code> (~140: payment → receipt), <code>BillsScreen</code> (~192) with tabs Bills / To bill / Receipts.</td></tr>
+<tr><td>lib/screens/entry_screens.dart</td><td><code>HarvestScreen</code> (~41, spray lock + owner override), <code>SpendScreen</code> (~159), shared <code>loadLists</code>, <code>bigNumber</code>, <code>dropdown</code>.</td></tr>
 <tr><td>lib/screens/labour_screen.dart</td><td>Attendance P/½/A/L, wage run with Pay, workers list.</td></tr>
-<tr><td>lib/screens/vendors_screen.dart</td><td>Receivables list → <code>VendorDetail</code>: statement, record payment, WhatsApp reminder, price list.</td></tr>
+<tr><td>lib/screens/vendors_screen.dart</td><td>Receivables list → <code>VendorDetail</code>: statement, Send statement (WhatsApp), record payment → receipt, Make bill for unbilled sales, price list.</td></tr>
 <tr><td>lib/screens/reports_screen.dart</td><td>Overview, crops, vendors, expenses, P&amp;L, balance sheet for a period.</td></tr>
 <tr><td>lib/screens/records_screen.dart</td><td>Generic list (<code>RecordsScreen</code>) and add / edit / delete form (<code>RecordForm</code>) for every resource, built from the server's field definitions — so a field added in resources.js appears on the phone too.</td></tr>
 <tr><td>lib/screens/settings_screen.dart</td><td>Modules on/off, users &amp; logins with WhatsApp share (<code>shareLogin</code>), <code>AccountScreen</code> (language, password).</td></tr>
 <tr><td>lib/screens/portals.dart</td><td><code>VendorApp</code> (deliveries confirm, statement, prices, orders) and <code>LabourApp</code> (check-in, earnings, tasks, attendance, payslips).</td></tr>
 <tr><td>lib/screens/super_admin.dart</td><td>Customers, create customer + admin login (WhatsApp share), reset / suspend, leads.</td></tr>
-<tr><td>test/app_test.dart</td><td>Unit tests (money, numbers, dates, periods, Telugu) and widget tests (login screen, chip picker).</td></tr>
+<tr><td>test/app_test.dart</td><td>Unit tests (money, numbers, dates, periods, Telugu) and widget tests (login screen, chip picker, bill sheet).</td></tr>
 </table>
 <p>Commands: <code>cd mobile</code> → <code>flutter pub get</code> · <code>flutter analyze</code> · <code>flutter test</code> · <code>flutter run --dart-define=API_URL=http://&lt;PC-IP&gt;:4000</code> · <code>flutter build apk --release --dart-define=API_URL=https://your-site</code>.</p>
 
@@ -279,6 +300,8 @@ mobile/                  Flutter app (Android / iOS) - see section 5
 <li>Cost per crop = direct (tagged to crop cycle) + shared costs incl. depreciation split by area × days of running cycles.</li>
 <li>Balance-sheet cash = opening cash + money in − money out since books-start date.</li>
 <li>Module off → screens hidden and API blocked; data kept.</li>
+<li>Bills: one bill = one vendor + one or more sale lines (sales.bill_id). Numbers PREFIX/FY/0001 per org, restart every April, never reused. Bill made at Save (setting <i>every delivery</i>) or later from <i>To bill</i>. A billed sale cannot move to another vendor; deleting every line cancels the bill; cancelling releases its sales to be billed again (owner / manager only).</li>
+<li>Every payment received gets a receipt number PREFIX-R/FY/0001. Bill, receipt and statement links use long random tokens, read-only, no login, rate-limited.</li>
 </ul>
 
 <h2 id="run">7. Run &amp; deploy (details in README.md)</h2>

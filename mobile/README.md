@@ -17,9 +17,11 @@ lib/
   screens/shell.dart         bottom tabs by role, "+" quick entry, More (all screens + search), menu definitions
   screens/dashboard_screen.dart   owner dashboard / supervisor "today", alerts
   screens/suggestions_screen.dart smart suggestions + season calendar
-  screens/entry_screens.dart      Sell, Harvest, Spend
+  screens/sell_screen.dart        Sell: vendor -> several items -> Save & make bill -> Send on WhatsApp
+  screens/bills_screen.dart       Bills / To bill / Receipts, the send sheet (WhatsApp, PDF, link), payment -> receipt
+  screens/entry_screens.dart      Harvest, Spend
   screens/labour_screen.dart      attendance, wage run, workers
-  screens/vendors_screen.dart     dues, statement, payment, WhatsApp reminder, prices
+  screens/vendors_screen.dart     dues, statement, send statement, payment -> receipt, make bill, prices
   screens/reports_screen.dart     overview, crops, vendors, expenses, P&L, balance sheet
   screens/records_screen.dart     generic list + form for all 30 record types (from the server's field definitions)
   screens/settings_screen.dart    modules on/off, team logins (WhatsApp share), my account

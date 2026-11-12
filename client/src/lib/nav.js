@@ -1,4 +1,4 @@
-// Menu definition. A link shows only if the user's role is allowed AND its module is ON.
+// Menu definition. A link shows only if the user's role is allowed AND its module is ON (and its `off` module is OFF).
 // /m/<resource> links are generic list screens (shown when the server's /api/meta includes that resource).
 const OWN = ['admin', 'manager'];
 const FIELD = ['admin', 'manager', 'supervisor'];
@@ -9,6 +9,7 @@ export const MAIN = [
   { to: '/sell', label: 'Sell', icon: 'truck', roles: STAFF, module: 'sales' },
   { to: '/harvest', label: 'Harvest', icon: 'basket', roles: STAFF, module: 'harvest' },
   { to: '/spend', label: 'Spend', icon: 'wallet2', roles: FIELD, module: 'expenses' },
+  { to: '/bills', label: 'Bills', icon: 'receipt', roles: STAFF, module: 'billing' },
   { to: '/reports', label: 'Reports', icon: 'graph-up-arrow', roles: OWN },
   { to: '/vendors', label: 'Vendors', icon: 'shop', roles: OWN, module: 'sales' },
   { to: '/labour', label: 'Labour', icon: 'people', roles: FIELD, module: 'labour' },
@@ -21,7 +22,9 @@ export const QUICK = [
   { to: '/sell', label: 'Sale', icon: 'truck', roles: STAFF, module: 'sales' },
   { to: '/harvest', label: 'Harvest', icon: 'basket', roles: STAFF, module: 'harvest' },
   { to: '/spend', label: 'Expense', icon: 'wallet2', roles: FIELD, module: 'expenses' },
-  { to: '/m/payments_received?new=1', label: 'Payment received', icon: 'cash-coin' },
+  { to: '/bills?tab=receipts&new=1', label: 'Payment received', icon: 'cash-coin', roles: OWN, module: 'billing' },
+  { to: '/m/payments_received?new=1', label: 'Payment received', icon: 'cash-coin', roles: OWN, module: 'sales', off: 'billing' },
+  { to: '/bills?tab=tobill', label: 'Make bills', icon: 'receipt', roles: OWN, module: 'billing' },
   { to: '/labour', label: 'Attendance', icon: 'people', roles: FIELD, module: 'labour' },
   { to: '/m/orders?new=1', label: 'Vendor order', icon: 'cart-check' },
   { to: '/m/tasks?new=1', label: 'Task', icon: 'check2-square' },
@@ -84,12 +87,13 @@ export const GROUPS = [
 export function visible(item, meta, role) {
   if (item.roles && !item.roles.includes(role)) return false;
   if (item.module && meta?.org && meta.org.settings.modules[item.module] === false) return false;
+  if (item.off && meta?.org && meta.org.settings.modules[item.off] !== false) return false; // only when that module is OFF
   if (item.to.startsWith('/m/')) { const r = meta?.resources?.[item.to.slice(3).split('?')[0]]; return !!r && (!item.to.includes('new=1') || r.canWrite); }
   return true;
 }
 
 // Bottom tab bar on phones (4 + More)
 export function mobileTabs(meta, role) {
-  const pick = { delivery: ['/sell', '/harvest'], supervisor: ['/', '/harvest', '/sell', '/labour'] }[role] || ['/', '/sell', '/harvest', '/reports'];
+  const pick = { delivery: ['/sell', '/harvest', '/bills'], supervisor: ['/', '/harvest', '/sell', '/labour'] }[role] || ['/', '/sell', '/harvest', '/reports'];
   return MAIN.filter((m) => pick.includes(m.to) && visible(m, meta, role));
 }

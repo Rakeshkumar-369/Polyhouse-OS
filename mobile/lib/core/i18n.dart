@@ -31,4 +31,12 @@ const Map<String, String> _te = {
   'Best season': 'మంచి కాలం', 'Price': 'ధర', 'Weak month': 'బలహీన నెల', 'Season calendar': 'సీజన్ క్యాలెండర్', 'Nothing here yet': 'ఇంకా ఏమీ లేదు',
   'Saved': 'సేవ్ అయింది', 'Retry': 'మళ్ళీ ప్రయత్నించండి', 'Modules on/off': 'మాడ్యూల్స్ ఆన్/ఆఫ్', 'Users & logins': 'యూజర్లు & లాగిన్లు',
   'Farm setup': 'ఫారం సెటప్', 'Grow': 'పెంపకం', 'Spend & stock': 'ఖర్చు & స్టాక్', 'Work': 'పని', 'Money & records': 'డబ్బు & రికార్డులు',
+  'Bills': 'బిల్లులు', 'Receipts': 'రసీదులు', 'To bill': 'బిల్లు చేయాల్సినవి', 'Make bill': 'బిల్లు చేయి', 'Make bills': 'బిల్లులు చేయి', 'Bill all': 'అన్నిటికీ బిల్లు',
+  'Send on WhatsApp': 'వాట్సాప్‌లో పంపు', 'Send': 'పంపు', 'Sent': 'పంపారు', 'sent': 'పంపారు', 'not sent': 'పంపలేదు', 'Not sent': 'పంపలేదు', 'cancelled': 'రద్దు',
+  'Open / PDF': 'తెరువు / PDF', 'Copy link': 'లింక్ కాపీ', 'Link copied': 'లింక్ కాపీ అయింది', 'Cancel bill': 'బిల్లు రద్దు', 'Message preview': 'సందేశం చూడండి', 'Done': 'పూర్తి',
+  'Same as last time': 'గతసారి లాగే', 'Add another item': 'మరో వస్తువు జోడించు', '1. Vendor': '1. వెండర్', '2. Items': '2. వస్తువులు', 'added': 'జోడించారు', 'items': 'వస్తువులు',
+  'Save & make bill': 'సేవ్ & బిల్లు చేయి', 'Save & make receipt': 'సేవ్ & రసీదు చేయి', 'Amount received': 'వచ్చిన మొత్తం', 'recorded': 'నమోదైంది', 'payments': 'చెల్లింపులు', 'Payment': 'చెల్లింపు',
+  'Send statement': 'స్టేట్‌మెంట్ పంపు', 'sale(s) not on a bill': 'బిల్లు కాని అమ్మకాలు', 'sale(s)': 'అమ్మకాలు', 'bill(s) made': 'బిల్లులు తయారయ్యాయి', 'Bills made — send them': 'బిల్లులు తయారు — పంపండి',
+  'Sales not on a bill yet': 'ఇంకా బిల్లు కాని అమ్మకాలు', 'New sale': 'కొత్త అమ్మకం', "Share today's summary": 'ఈరోజు సారాంశం పంపు', 'of sales not on a bill': 'అమ్మకాలు బిల్లు కాలేదు', 'vendors': 'వెండర్లు',
+  'Open orders': 'పెండింగ్ ఆర్డర్లు', 'From farm': 'ఏ ఫారం నుండి',
 };

@@ -12,6 +12,10 @@ const env = require('./env');
 // Columns added after the first release: [table, column, definition]
 const COLUMN_UPGRADES = [
   ['users', 'lang', "VARCHAR(5) DEFAULT 'en'"],
+  ['sales', 'bill_id', 'INT NULL'],
+  ['payments_received', 'receipt_no', 'VARCHAR(40)'],
+  ['payments_received', 'token', 'VARCHAR(40)'],
+  ['parties', 'share_token', 'VARCHAR(40)'],
 ];
 
 async function ensureSchema({ log = true } = {}) {

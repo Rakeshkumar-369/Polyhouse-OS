@@ -1,6 +1,6 @@
 # Polyhouse OS — the operating system for polyhouses and farms
 
-Polyhouse OS is a complete, mobile-first platform for growers: one **Farm OS** that runs the day (harvest by crop and grade, sales to many vendors at each vendor's own price, every rupee spent, attendance and wages, crop logs) and turns it into **dashboards the owner can act on the same evening** — profit, cost per kg vs price per kg, who owes how much for how long, and what needs attention today.
+Polyhouse OS is a complete, mobile-first platform for growers: one **Farm OS** that runs the day (harvest by crop and grade, sales to many vendors at each vendor's own price, every rupee spent, attendance and wages, crop logs) gives every buyer a **numbered bill and receipt sent on WhatsApp in one tap**, and turns it into **dashboards the owner can act on the same evening** — profit, cost per kg vs price per kg, who owes how much for how long, and what needs attention today.
 
 It is built from the *Polyhouse Industry Problems & Product Blueprint*: every module exists because a problem costs a grower money, and every screen shows the number it moves (yield per m², price realised per kg, cost per kg, days to collect, labour cost per kg, rejection %).
 
@@ -20,19 +20,20 @@ It is sold to five kinds of customers: **one-polyhouse owners, crop-field owners
 2. [Build commands at a glance](#2-build-commands-at-a-glance)
 3. [Demo logins](#3-demo-logins)
 4. [The apps](#4-the-apps)
-5. [Smart suggestions](#5-smart-suggestions)
-6. [Mobile app (Flutter)](#6-mobile-app-flutter)
-7. [Onboarding a new customer (2 minutes)](#7-onboarding-a-new-customer-2-minutes)
-8. [Guided 10-minute demo](#8-guided-10-minute-demo)
-9. [Blueprint → module map](#9-blueprint--module-map)
-10. [Free hosting — go live today](#10-free-hosting--go-live-today)
-11. [Architecture & performance](#11-architecture--performance)
-12. [Project structure](#12-project-structure)
-13. [API overview](#13-api-overview)
-14. [Scripts & testing](#14-scripts--testing)
-15. [Configuration (.env)](#15-configuration-env)
-16. [Documentation](#16-documentation)
-17. [Roadmap](#17-roadmap)
+5. [Bills & receipts on WhatsApp](#5-bills--receipts-on-whatsapp)
+6. [Smart suggestions](#6-smart-suggestions)
+7. [Mobile app (Flutter)](#7-mobile-app-flutter)
+8. [Onboarding a new customer (2 minutes)](#8-onboarding-a-new-customer-2-minutes)
+9. [Guided 10-minute demo](#9-guided-10-minute-demo)
+10. [Blueprint → module map](#10-blueprint--module-map)
+11. [Free hosting — go live today](#11-free-hosting--go-live-today)
+12. [Architecture & performance](#12-architecture--performance)
+13. [Project structure](#13-project-structure)
+14. [API overview](#14-api-overview)
+15. [Scripts & testing](#15-scripts--testing)
+16. [Configuration (.env)](#16-configuration-env)
+17. [Documentation](#17-documentation)
+18. [Roadmap](#18-roadmap)
 
 ---
 
@@ -121,9 +122,9 @@ The login page shows one-tap buttons for all of these when `DEMO_MODE=true`.
 | App | Role | Name | Login | Password | What to look at |
 |---|---|---|---|---|---|
 | Platform | Super admin | Platform owner | `superadmin` | `admin123` | Customers, create customer + admin login, WhatsApp the login, leads from the website |
-| Farm OS | Owner (admin) | XYZ Polyhouse | `xyz` | `xyz123` | Dashboard, reports, vendors, labour, settings & module toggles |
+| Farm OS | Owner (admin) | XYZ Polyhouse | `xyz` | `xyz123` | Dashboard, Sell → bill on WhatsApp, Bills & receipts, reports, vendors, labour, settings & module toggles |
 | Farm OS | Supervisor | Venkatesh | `super1` | `demo123` | "My farm today", harvest, attendance, EC/pH, sprays — no money reports |
-| Farm OS | Delivery | Raju | `delivery1` | `demo123` | Sell screen: crop → vendor → quantity, price auto-applied |
+| Farm OS | Delivery | Raju | `delivery1` | `demo123` | Sell screen: vendor → items → Save & make bill → send on WhatsApp, price auto-applied |
 | Vendor app | Vendor | FreshMart Retail | `vendor1` | `demo123` | Deliveries to confirm / reject, statement, dues, prices, orders |
 | Labour app | Labour | Lakshmi | `labour1` | `demo123` | Check-in button, earnings this week / month, payslips |
 
@@ -140,16 +141,37 @@ The simulation is shaped so the insights mean something: each crop yields best n
 | App | URL | For | Highlights |
 |---|---|---|---|
 | **Website** | `/` | Prospects | Problem → module → number, who it's for, one login per person, plans, **Request a demo** form (lands in Super admin → Leads) |
-| **Farm OS** | `/` after login | Owner, manager, supervisor, delivery | Dashboard with a one-line finding, **smart suggestions**, KPIs vs previous period, sales vs expenses, cost vs price by crop, price trend, ageing of dues, best-paying vendor per crop, crop cycles vs target, best selling days, labour; **Sell**, **Harvest**, **Spend** quick-entry screens; Reports; Vendors; Labour; Smart suggestions with season calendar; Alerts; 30 list screens; Settings with **module on/off toggles**. One **+ New entry** button (centre of the phone tab bar) for every daily record; menu groups fold away; back button and screen search on phones |
-| **Setup wizard** | `/setup` | New owner (first login) | 5 steps: farm (acres, L×W×H, rent) → crops → vendors & their prices → workers & pay + monthly bills → start. Every step skippable |
-| **Vendor app** | `/` as vendor | Buyers | Deliveries with confirm / report rejected qty, statement with running balance, dues & overdue, today's prices, place / cancel orders |
+| **Farm OS** | `/` after login | Owner, manager, supervisor, delivery | Dashboard with a one-line finding, **smart suggestions**, KPIs vs previous period, sales vs expenses, cost vs price by crop, price trend, ageing of dues, best-paying vendor per crop, crop cycles vs target, best selling days, labour; **Sell** (several items → numbered bill → **Send on WhatsApp**), **Bills & receipts** (to bill, receipts, statements), **Harvest**, **Spend** quick-entry screens; Reports; Vendors; Labour; Smart suggestions with season calendar; Alerts; 30 list screens; Settings with **module on/off toggles**. One **+ New entry** button (centre of the phone tab bar) for every daily record; menu groups fold away; back button and screen search on phones |
+| **Setup wizard** | `/setup` | New owner (first login) | 5 steps: farm (acres, L×W×H, rent) → crops → vendors & their prices + how you bill (every delivery / weekly-monthly), UPI ID, whether vendors log in → workers & pay + monthly bills → start. Every step skippable |
+| **Bill / receipt / statement page** | `/b/…`, `/r/…`, `/s/…` | Buyers (no login) | Opened from the WhatsApp message: printable bill with UPI QR, receipt, running statement — *Print / Save PDF* |
+| **Vendor app** | `/` as vendor | Buyers (optional module) | Deliveries with confirm / report rejected qty, statement with running balance, dues & overdue, today's prices, place / cancel orders |
 | **Labour app** | `/` as labour | Workers | Big check-in / check-out button, "do not enter" spray warning, earnings this week and month, tasks, 4-week attendance calendar, payslips — in Telugu |
-| **Mobile app** | Android / iOS (`mobile/`) | Everyone | Same logins and data as the web app — see [section 6](#6-mobile-app-flutter) |
+| **Mobile app** | Android / iOS (`mobile/`) | Everyone | Same logins and data as the web app — see [section 7](#7-mobile-app-flutter) |
 | **Platform** | `/` as super admin | You | Create customer + admin login in one form, **send the login on WhatsApp**, open any customer to set it up for them, reset password, suspend, leads from the website |
 
 ---
 
-## 5. Smart suggestions
+## 5. Bills & receipts on WhatsApp
+
+Many farms do not want vendors to log in at all — the owner just wants to **give every buyer a proper bill and send it on WhatsApp**. Polyhouse OS does that in one tap, on the web and in the mobile app. (Vendor login stays available as a module for buyers who want it.)
+
+| Step | What happens |
+|---|---|
+| **Sell** | Pick the vendor → add one or more items (crop, grade, quantity — *Add another item*) → **Save & make bill**. Prices come from the vendor's price list; *Same as last time* repeats the vendor's previous bill; open orders are added with one tap |
+| **Bill** | Numbered per financial year — `XYZ/2026-27/0001` (prefix set in Settings), restarts every April. Shows the items, the bill amount in words, the **total due from that vendor**, a **UPI QR code** with the amount filled in, bank details and your footer note |
+| **Send** | **Send on WhatsApp** opens the vendor's chat with the bill message and a link. The vendor opens the link without any login, sees the bill, scans the QR to pay, or prints / saves it as PDF |
+| **Payment** | *Payment received* → **Save & make receipt** → numbered receipt `XYZ-R/2026-27/0001` → Send on WhatsApp |
+| **Statement** | Vendors → open a vendor → **Send statement** — opening balance, every sale and payment, closing balance, links to each bill |
+| **Bill weekly / monthly** | Settings → Bills & receipts → *When to make the bill: Later*. Deliveries are saved as plain sales; **Bills → To bill** makes one bill per vendor for everything not yet billed (or *Bill all*) and lists them with a Send button each |
+| **Day summary** | Dashboard → **Share today's summary** — harvest, sales, collection, spend, attendance and dues as one WhatsApp message for a partner or family group |
+
+Bills list: search by bill number or vendor, period filter, *Not sent* filter (the dashboard also reminds you of sales not yet on a bill). A bill can be cancelled by the owner / manager — its sales stay and can be billed again. A billed sale cannot be moved to another vendor; deleting every line of a bill cancels it.
+
+Links look like `https://your-site/b/<random-token>` (bill), `/r/<token>` (receipt) and `/s/<token>` (statement): long random tokens, read-only, rate-limited, no other data reachable from them. Set `APP_URL` to your public address so links are correct behind a proxy.
+
+---
+
+## 6. Smart suggestions
 
 **Smart suggestions** (menu → *Smart suggestions*, and the top of the dashboard) learn from the farm's **own history**: every month it compares each crop's yield (kg per m² per month, using the crop cycle's area), the **average temperature and humidity** recorded in the climate log that month, and the **price** realised. Then it says, in plain words:
 
@@ -165,15 +187,15 @@ A **season calendar** shows every crop × month as a colour (green = best months
 
 ---
 
-## 6. Mobile app (Flutter)
+## 7. Mobile app (Flutter)
 
 The `mobile/` folder is a Flutter app for **Android and iOS** with the same logins and data as the web app.
 
 | Who | What they get on the phone |
 |---|---|
-| Owner / manager | Dashboard (one-line finding, KPIs, smart suggestions, sales vs expenses, alerts, crops, dues ageing, best vendor), Sell, Harvest, Spend, Reports (overview, crops, vendors, expenses, P&L, balance sheet), Vendors (statement, record payment, WhatsApp reminder, prices), Labour (attendance, wage run & pay), Smart suggestions with season calendar, **every one of the 30 record lists with add / edit / delete**, Settings (modules on/off, team logins with WhatsApp share) |
+| Owner / manager | Dashboard (one-line finding, KPIs, smart suggestions, sales vs expenses, alerts, crops, dues ageing, best vendor), Sell with several items → bill → **Send on WhatsApp**, **Bills** (list, not-sent filter, to bill, receipts), Share today's summary, Harvest, Spend, Reports (overview, crops, vendors, expenses, P&L, balance sheet), Vendors (statement + send statement, record payment → receipt, make bill, prices), Labour (attendance, wage run & pay), Smart suggestions with season calendar, **every one of the 30 record lists with add / edit / delete**, Settings (modules on/off, team logins with WhatsApp share) |
 | Supervisor | Today view, Harvest, Sell, Attendance, crop logs (EC/pH, temperature, scouting, sprays, tasks) |
-| Delivery | Sell (price auto-filled from the vendor's price list) and Harvest |
+| Delivery | Sell (several items, price auto-filled from the vendor's price list) → bill → Send on WhatsApp, Bills, Harvest |
 | Vendor | Deliveries to confirm / reject, statement, prices, place and cancel orders |
 | Labour | One big Check-in / Check-out button, spray warnings, earnings, tasks, attendance calendar, payslips |
 | Super admin | Customers, create customer + admin login (WhatsApp share), leads |
@@ -191,7 +213,7 @@ Design: Material 3 in the brand green, big tap targets, chip pickers instead of 
 
 ---
 
-## 7. Onboarding a new customer (2 minutes)
+## 8. Onboarding a new customer (2 minutes)
 
 1. Log in as **super admin** → **New customer + admin login**.
 2. Pick the customer type (single polyhouse / crop field / many polyhouses / FPO / land at many places) — this switches on the right modules.
@@ -202,25 +224,25 @@ Design: Material 3 in the brand green, big tap targets, chip pickers instead of 
 
 ---
 
-## 8. Guided 10-minute demo
+## 9. Guided 10-minute demo
 
 1. **Website** → `http://localhost:5173` → scroll to *Request a free demo* → submit.
 2. **Super admin** → *Leads* shows the request → **Create account** pre-fills the form from the lead → create → *Send on WhatsApp*.
 3. Log out, log in as the new owner → walk the **setup wizard** (tick Capsicum Red, give a vendor ₹95/kg, add a worker).
-4. **Delivery** → *Sell* → tap Capsicum Red → the vendor → 40 kg → the price fills in by itself → *Save sale*.
+4. **Delivery** → *Sell* → the vendor → Capsicum Red 40 kg → *Add another item* → Cucumber 20 kg → prices fill in by themselves → **Save & make bill** → **Send on WhatsApp** → open the bill link: UPI QR, amount in words, total due, *Print / Save PDF*.
 5. **Owner (xyz)** → *Home*: the one-line finding, Cash in hand, *Needs attention* (salt build-up, overdue hotel, low stock, polyfilm replacement), *Who owes how long*, *Best paying vendor per crop*, *Crop cycles vs target*. Switch the period dropdown to *Last month* or *This financial year*.
 6. **Reports** → *Vendors* → the price matrix (best price in green); *P&L*; *Balance sheet*; *Day book*; download any table to Excel.
-7. **Vendors** → *Hotel Grand Deccan* → statement → *Reminder* (WhatsApp) → *Record payment*.
+7. **Vendors** → *Hotel Grand Deccan* → statement → **Send statement** (WhatsApp) → *Record payment* → **receipt** ready to send. **Bills → To bill** → *Bill all* for vendors billed monthly.
 8. **Labour** → mark attendance → *Wage run* → *Pay* (posts to expenses, recovers the advance).
 9. **Vendor (vendor1)** → confirm a delivery and report 2 kg rejected → the owner's amount and rejection % update.
 10. **Labour (labour1)** → switch to తెలుగు → *Check in*.
 11. **Settings → Modules on/off** → turn off *Labour & wages* → its screens disappear for everyone; turn it back on.
 12. **Smart suggestions** → the season calendar shows lettuce green in Nov–Jan and red in May–Jun; read *Next month* and *Best season*.
-13. **Mobile** → `cd mobile && flutter run` → log in as `delivery1` → tap a crop, a vendor, type the quantity → *Save sale* → it appears on the owner's web dashboard.
+13. **Mobile** → `cd mobile && flutter run` → log in as `delivery1` → tap a vendor, a crop, type the quantity → *Save & make bill* → *Send on WhatsApp* → it appears on the owner's web dashboard.
 
 ---
 
-## 9. Blueprint → module map
+## 10. Blueprint → module map
 
 | Problem (blueprint) | Module | Where in the app | Number it moves |
 |---|---|---|---|
@@ -242,7 +264,7 @@ Design: Material 3 in the brand green, big tap targets, chip pickers instead of 
 
 ---
 
-## 10. Free hosting — go live today
+## 11. Free hosting — go live today
 
 Two free paths are documented. **A** is the quickest; **B** never sleeps.
 
@@ -266,7 +288,7 @@ Two free paths are documented. **A** is the quickest; **B** never sleeps.
    (`JWT_SECRET` is generated automatically, `DB_SSL=true` is preset.)
 3. Click **Apply**. The first build takes 3–5 minutes.
 4. Open `https://polyhouse-os.onrender.com` (your URL is shown on Render) → **Log in** with `superadmin` and your password.
-5. Create your first customer (section 7) and send them the login. **Done.**
+5. Create your first customer (section 8) and send them the login. **Done.**
 
 *(Without the Blueprint: New → Web Service → this repo → Build `npm install && npm run build` → Start `npm start` → add the same environment variables.)*
 
@@ -309,7 +331,7 @@ The same Docker steps work on **any** VPS (Hostinger, DigitalOcean, AWS Lightsai
 
 ---
 
-## 11. Architecture & performance
+## 12. Architecture & performance
 
 ```
 Browser (React PWA) ─┐
@@ -347,7 +369,7 @@ Flutter app (Android/iOS) ┘        │  resources registry (generic CRUD + bus
 
 ---
 
-## 12. Project structure
+## 13. Project structure
 
 ```
 Polyhouse-OS/
@@ -355,22 +377,24 @@ Polyhouse-OS/
 │  └─ src/
 │     ├─ index.js / app.js      boot (auto schema + super admin), security, gzip, static hosting
 │     ├─ env.js / db.js         .env & DATABASE_URL, MySQL pool (TLS for cloud MySQL)
-│     ├─ schema.sql             33 tables
+│     ├─ schema.sql             35 tables
 │     ├─ migrate.js / reset.js  create/upgrade tables · drop & reload demo data
 │     ├─ seed.js                demo farm "XYZ Polyhouse" (14 months, relative to today)
 │     ├─ config.js              modules, customer types, default categories, alert limits, roles
 │     ├─ resources.js           registry of every table: fields, permissions, form metadata, business hooks
 │     ├─ reportService.js       dashboards, P&L, balance sheet, receivables, ageing, alerts, finding
 │     ├─ suggestionsService.js  smart suggestions: best months, temperature range, plant-by, price peaks
+│     ├─ billService.js         bills, receipts, statements: numbering per FY, WhatsApp text & link, public data
 │     ├─ orgService.js          create customer + admin login
 │     ├─ middleware/auth.js     JWT, roles, module guard, rate limit
-│     └─ routes/                auth, public, superadmin, settings, crud, ops, reports, portal
+│     └─ routes/                auth, public, superadmin, settings, crud, ops, reports, portal, billing
 ├─ client/                      React + Vite PWA
 │  └─ src/
 │     ├─ lib/                   api (cache), router, auth, i18n (English/Telugu), format, nav
-│     ├─ ui/                    kit, charts, icons, Form, ResourcePage, PeriodPicker, Shell (+ quick entry), LangSwitch
-│     └─ apps/                  public (Landing, Login), farm (Dashboard, Sell, Harvest, Spend, Reports,
-│                               Vendors, Labour, Suggestions, Alerts, Settings, Setup, Account), super, vendor, labour
+│     ├─ ui/                    kit, charts, icons, Form, ResourcePage, PeriodPicker, Shell (+ quick entry), LangSwitch,
+│     │                         BillSheet (send on WhatsApp), PaymentForm
+│     └─ apps/                  public (Landing, Login, Doc = printable bill / receipt / statement), farm (Dashboard, Sell, Bills,
+│                               Harvest, Spend, Reports, Vendors, Labour, Suggestions, Alerts, Settings, Setup, Account), super, vendor, labour
 ├─ mobile/                      Flutter app (Android / iOS): lib/core, lib/ui, lib/screens, test/
 ├─ docs/                        USER_MANUAL.md, COMMITS.md
 ├─ scripts/                     smoke.js (API test), scenarios.js (edge cases), build-icons.js
@@ -381,7 +405,7 @@ Polyhouse-OS/
 
 ---
 
-## 13. API overview
+## 14. API overview
 
 All endpoints are under `/api`. Authenticated calls use `Authorization: Bearer <token>` from `POST /api/auth/login`.
 
@@ -390,6 +414,8 @@ All endpoints are under `/api`. Authenticated calls use `Authorization: Bearer <
 | Public | `/public` | `POST /demo-request`, `GET /demo-accounts` |
 | Auth | `/auth` | `POST /login`, `POST /change-password`, `PUT /lang` |
 | Meta | `/meta` | user, organisation, modules, every form's field definitions |
+| Bills & receipts | `/` | `GET/POST bills`, `GET bills/unbilled`, `POST bills/from-sales`, `GET bills/:id`, `POST bills/:id/sent`, `POST bills/:id/cancel`, `GET receipts/:paymentId`, `GET statement-link/:partyId`, `GET share/today` |
+| Public documents | `/public` | `GET bill/:token`, `GET receipt/:token`, `GET statement/:token` (no login; what the WhatsApp links open) |
 | Generic records | `/r/:resource` | `GET` list (`from`, `to`, filters, `q`), `GET /options`, `POST`, `PUT /:id`, `DELETE /:id` for 30 resources (farms, crops, sales, harvests, expenses, workers, …) |
 | Operations | `/ops` | `price`, `produce-stock`, `locks`, `attendance-sheet`, `wage-calc`, `wage-run`, `recurring/post`, `upload`, `file/:name` |
 | Dashboards & reports | `/` | `dashboard`, `suggestions`, `reports/summary`, `reports/pnl`, `reports/balance`, `reports/receivables`, `reports/vendor/:id`, `reports/daybook`, `alerts` |
@@ -399,7 +425,7 @@ All endpoints are under `/api`. Authenticated calls use `Authorization: Bearer <
 
 ---
 
-## 14. Scripts & testing
+## 15. Scripts & testing
 
 | Command | What it does |
 |---|---|
@@ -410,13 +436,13 @@ All endpoints are under `/api`. Authenticated calls use `Authorization: Bearer <
 | `npm run build` | Production build of the web app into `client/dist` |
 | `npm start` | Production server on :4000 (API + built web app) |
 | `npm run smoke` | Logs in as every role and exercises ~110 API calls — every list, report and permission check, plus write flows (sale with automatic price, harvest, expense, payment, vendor confirmation, vendor order, labour check-in, demo request). `npm run smoke -- --read-only` skips the writes. `BASE=https://your-site npm run smoke -- --read-only` checks a deployed site. |
-| `npm run scenarios` | ~53 edge-case checks: price cannot be overridden by delivery staff, edits recalculate amounts, stock follows purchase edits/deletes, records in use cannot be deleted, spray-lock override rules, every permission, module on/off, organisations cannot see each other, suspend / reset, recurring payments posted once, smart suggestions learned |
+| `npm run scenarios` | ~85 edge-case checks: bills (multi-item, numbering in sequence, vendor price enforced, public links, cancel / re-bill, bill-from-sales, receipts, statements, module off),  price cannot be overridden by delivery staff, edits recalculate amounts, stock follows purchase edits/deletes, records in use cannot be deleted, spray-lock override rules, every permission, module on/off, organisations cannot see each other, suspend / reset, recurring payments posted once, smart suggestions learned |
 | `npm test` | `smoke` + `scenarios` together (server must be running on :4000, demo data loaded) |
 | `cd mobile && flutter analyze && flutter test` | Mobile app static checks + unit/widget tests |
 
 ---
 
-## 15. Configuration (.env)
+## 16. Configuration (.env)
 
 | Key | Meaning |
 |---|---|
@@ -427,10 +453,11 @@ All endpoints are under `/api`. Authenticated calls use `Authorization: Bearer <
 | `DEMO_MODE` | `true` shows one-tap demo logins on the login page (needs demo data) |
 | `SEED_DEMO` | `true` loads the demo farm once into an empty database on start (Docker) |
 | `PORT` | Port to listen on (default 4000) |
+| `APP_URL` | Optional public address (e.g. `https://polyhouse.onrender.com`) used in bill / receipt / statement links. If empty, the address the request came in on is used |
 
 ---
 
-## 16. Documentation
+## 17. Documentation
 
 | Document | For |
 |---|---|
@@ -441,14 +468,14 @@ All endpoints are under `/api`. Authenticated calls use `Authorization: Bearer <
 
 ---
 
-## 17. Roadmap
+## 18. Roadmap
 
 From the blueprint's "later" list and natural next steps:
 
 - Offline entry inside the polyhouse with sync at the gate; voice entry in Telugu; photo upload from the mobile app.
 - Weather forecast feed (IMD) next to smart suggestions; suggestions per bay and per variety.
-- WhatsApp Cloud API: evening digest to the owner, payslips to workers, automatic dues reminders.
+- WhatsApp Cloud API: send bills automatically without opening WhatsApp, evening digest, payslips, automatic dues reminders.
 - IoT sensors for EC/pH, temperature and humidity; connected weighing scale for harvest.
-- GST invoices and Tally export; UPI payment links on vendor statements.
+- GST tax invoices (HSN, CGST/SGST) and Tally export.
 - Buyer marketplace: weekly availability forecast and multi-farm sourcing for retail chains and exporters.
 - Hindi and more languages; peer benchmarks for FPOs.

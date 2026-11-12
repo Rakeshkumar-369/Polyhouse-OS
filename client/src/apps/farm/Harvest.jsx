@@ -78,7 +78,7 @@ export default function Harvest() {
           </form>
         </Card>
       </div>
-      <div className="lg:col-span-2 space-y-4 lg:pt-[60px]">
+      <div className="lg:col-span-2 min-w-0 space-y-4 lg:pt-[60px]">
         <Card title={f.date === todayISO() ? t('Plucked today') : `${t('Harvest')} ${f.date}`}>
           {byCrop.length > 0 && <div className="flex flex-wrap gap-1.5 mb-3">{byCrop.map((b) => <Badge key={b.k} tone="green">{b.k}: {num(b.qty)}</Badge>)}</div>}
           {rows.length ? rows.map((h) => (

@@ -11,9 +11,11 @@ function sign(user) {
 
 // Loads req.user and req.org (with merged settings) from the Bearer token.
 async function auth(req, res, next) {
+  if (req.user) return next(); // already checked by an earlier router for this request
   try {
     const h = req.headers.authorization || '';
-    const token = h.startsWith('Bearer ') ? h.slice(7) : req.query.token;
+    // ?token= is accepted only for file downloads (img / pdf links cannot send headers)
+    const token = h.startsWith('Bearer ') ? h.slice(7) : (req.originalUrl.includes('/ops/file/') ? req.query.token : null);
     if (!token) return res.status(401).json({ error: 'Login required' });
     const { id } = jwt.verify(token, SECRET);
     const user = await one('SELECT id, org_id, name, login, role, worker_id, party_id, lang, active FROM users WHERE id=?', [id]);
@@ -36,6 +38,7 @@ function mergeSettings(raw) {
   return {
     ...DEFAULT_SETTINGS, ...s,
     thresholds: { ...DEFAULT_SETTINGS.thresholds, ...(s.thresholds || {}) },
+    billing: { ...DEFAULT_SETTINGS.billing, ...(s.billing || {}) },
     modules: s.modules || {},
   };
 }

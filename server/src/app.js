@@ -28,6 +28,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/super', require('./routes/superadmin'));
 app.use('/api/portal', require('./routes/portal'));
 app.use('/api/ops', require('./routes/ops'));
+app.use('/api', require('./routes/billing'));
 app.use('/api', require('./routes/settings'));
 app.use('/api', require('./routes/reports'));
 app.use('/api', require('./routes/crud'));

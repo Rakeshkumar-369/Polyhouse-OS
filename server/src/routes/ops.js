@@ -9,7 +9,7 @@ const { q, one } = require('../db');
 const { auth, allow, moduleOn } = require('../middleware/auth');
 const { lookupPrice, activeLocks, today, addDays } = require('../resources');
 const { STAFF, FIELD, MANAGERS } = require('../config');
-const { wrap } = require('./crud');
+const { wrap, isDate } = require('./crud');
 
 router.use(auth);
 
@@ -61,7 +61,11 @@ router.get('/attendance-sheet', allow(FIELD), moduleOn('labour'), wrap(async (re
 
 router.post('/attendance-sheet', allow(FIELD), moduleOn('labour'), wrap(async (req, res) => {
   const { date, entries } = req.body || {};
-  if (!date || !Array.isArray(entries)) return res.status(400).json({ error: 'date and entries required' });
+  if (!isDate(date || '') || !Array.isArray(entries)) return res.status(400).json({ error: 'date and entries required' });
+  if (date > today()) return res.status(400).json({ error: 'Attendance cannot be marked for a future date' });
+  for (const e of entries) {
+    if (e.status && !['present', 'half', 'absent', 'leave'].includes(e.status)) return res.status(400).json({ error: `Unknown attendance status: ${e.status}` });
+  }
   for (const e of entries) {
     const w = await one('SELECT id, farm_id FROM workers WHERE id=? AND org_id=?', [e.worker_id, req.org.id]);
     if (!w) continue;
@@ -150,12 +154,14 @@ async function postDueRecurring(org, onlyId) {
   for (const r of due) {
     let d = r.next_due; let guard = 0;
     while (d <= today() && guard++ < 60) {
+      // Claim this due date first: if two people open the dashboard at the same moment only one posts it
+      const claim = await q('UPDATE recurring_expenses SET next_due=? WHERE id=? AND next_due=?', [nextDate(d, r.frequency), r.id, d]);
+      if (!claim.affectedRows) break;
       await q(`INSERT INTO expenses (org_id,date,category_id,description,farm_id,party_id,amount,payment_mode,recurring_id) VALUES (?,?,?,?,?,?,?,?,?)`,
         [org.id, d, r.category_id, r.name, r.farm_id, r.party_id, r.amount, 'bank', r.id]);
       n++; d = nextDate(d, r.frequency);
       if (onlyId) break;
     }
-    await q('UPDATE recurring_expenses SET next_due=? WHERE id=?', [d, r.id]);
   }
   return n;
 }

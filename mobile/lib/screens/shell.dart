@@ -7,6 +7,8 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'dashboard_screen.dart';
 import 'entry_screens.dart';
+import 'sell_screen.dart';
+import 'bills_screen.dart';
 import 'records_screen.dart';
 import 'reports_screen.dart';
 import 'vendors_screen.dart';
@@ -24,12 +26,14 @@ class MenuItem {
   final List<String>? roles;
   final String? module;
   final String? resource; // generic record list (needs this resource in /api/meta)
+  final String? off; // shown only while this module is OFF
   final Widget Function()? page;
-  const MenuItem(this.label, this.icon, {this.roles, this.module, this.resource, this.page});
+  const MenuItem(this.label, this.icon, {this.roles, this.module, this.resource, this.off, this.page});
 
   bool visible(Session s) {
     if (roles != null && !roles!.contains(s.role)) return false;
     if (!s.on(module)) return false;
+    if (off != null && s.on(off)) return false;
     if (resource != null) return s.resources.containsKey(resource);
     return true;
   }
@@ -42,6 +46,7 @@ final mainMenu = <MenuItem>[
   MenuItem('Sell', Icons.local_shipping_outlined, roles: _staff, module: 'sales', page: () => const SellScreen()),
   MenuItem('Harvest', Icons.shopping_basket_outlined, roles: _staff, module: 'harvest', page: () => const HarvestScreen()),
   MenuItem('Spend', Icons.account_balance_wallet_outlined, roles: _field, module: 'expenses', page: () => const SpendScreen()),
+  MenuItem('Bills', Icons.receipt_long_outlined, roles: _staff, module: 'billing', page: () => const BillsScreen()),
   MenuItem('Reports', Icons.insights_outlined, roles: _owner, page: () => const ReportsScreen()),
   MenuItem('Vendors', Icons.storefront_outlined, roles: _owner, module: 'sales', page: () => const VendorsScreen()),
   MenuItem('Labour', Icons.groups_outlined, roles: _field, module: 'labour', page: () => const LabourScreen()),
@@ -103,7 +108,9 @@ final quickItems = <MenuItem>[
   MenuItem('Sale', Icons.local_shipping_outlined, roles: _staff, module: 'sales', page: () => const SellScreen()),
   MenuItem('Harvest', Icons.shopping_basket_outlined, roles: _staff, module: 'harvest', page: () => const HarvestScreen()),
   MenuItem('Expense', Icons.account_balance_wallet_outlined, roles: _field, module: 'expenses', page: () => const SpendScreen()),
-  MenuItem('Payment received', Icons.payments_outlined, resource: 'payments_received', page: () => const RecordsScreen(resKey: 'payments_received', openNew: true)),
+  MenuItem('Payment received', Icons.payments_outlined, roles: _owner, module: 'billing', page: () => const BillsScreen(initialTab: 2, newPayment: true)),
+  MenuItem('Payment received', Icons.payments_outlined, resource: 'payments_received', off: 'billing', page: () => const RecordsScreen(resKey: 'payments_received', openNew: true)),
+  MenuItem('Make bills', Icons.receipt_long_outlined, roles: _owner, module: 'billing', page: () => const BillsScreen(initialTab: 1)),
   MenuItem('Attendance', Icons.groups_outlined, roles: _field, module: 'labour', page: () => const LabourScreen()),
   MenuItem('Temperature', Icons.thermostat, resource: 'climate_logs', page: () => const RecordsScreen(resKey: 'climate_logs', openNew: true)),
   MenuItem('EC / pH', Icons.water_drop_outlined, resource: 'fertigation_logs', page: () => const RecordsScreen(resKey: 'fertigation_logs', openNew: true)),
@@ -128,7 +135,7 @@ class _FarmShellState extends State<FarmShell> {
 
   List<MenuItem> _tabs(Session s) {
     final pick = switch (s.role) {
-      'delivery' => ['Sell', 'Harvest'],
+      'delivery' => ['Sell', 'Harvest', 'Bills'],
       'supervisor' => ['Home', 'Harvest', 'Sell', 'Labour'],
       _ => ['Home', 'Sell', 'Harvest', 'Reports'],
     };

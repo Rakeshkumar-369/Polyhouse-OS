@@ -1,4 +1,5 @@
-// Vendors: who owes what (overdue first) -> statement with running balance, record payment, WhatsApp reminder, prices.
+// Vendors: who owes what (overdue first) -> statement with running balance, record payment (+ receipt to send),
+// send statement on WhatsApp, bill unbilled sales, prices.
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/session.dart';
@@ -7,6 +8,7 @@ import '../core/i18n.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'records_screen.dart';
+import 'bills_screen.dart';
 
 class VendorsScreen extends StatelessWidget {
   const VendorsScreen({super.key});
@@ -80,34 +82,44 @@ class _VendorDetailState extends State<VendorDetail> {
   }
 
   Future<void> _payment() async {
+    if (await recordPayment(context, party: widget.party)) _loader.currentState?.reload();
+  }
+
+  Future<void> _statement() async {
     final s = SessionScope.read(context);
-    final amount = TextEditingController();
-    final ref = TextEditingController();
-    String mode = 'upi';
-    final ok = await showModalBottomSheet<bool>(
-      context: context, isScrollControlled: true, showDragHandle: true,
-      builder: (c) => StatefulBuilder(builder: (c, set) => Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.of(c).viewInsets.bottom),
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text(tr('Payment received'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 12),
-              TextField(controller: amount, autofocus: true, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: tr('Amount'))),
-              const SizedBox(height: 10),
-              ChipPicker(options: const [Choice('cash', 'Cash'), Choice('upi', 'UPI'), Choice('bank', 'Bank'), Choice('cheque', 'Cheque')], value: mode, onChanged: (v) => set(() => mode = v)),
-              const SizedBox(height: 10),
-              TextField(controller: ref, decoration: const InputDecoration(labelText: 'UTR / reference')),
-              const SizedBox(height: 14),
-              FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(tr('Save'))),
-            ]),
-          )),
-    );
-    if (ok != true || toD(amount.text) <= 0) return;
     try {
-      await s.api.post('/r/payments_received', {'party_id': widget.party['party_id'], 'amount': amount.text, 'mode': mode, 'reference': ref.text, 'date': todayIso()});
-      if (mounted) { toast(context, '${money(amount.text, s.cur)} recorded'); _loader.currentState?.reload(); }
+      final doc = Map<String, dynamic>.from(await s.api.get('/statement-link/${widget.party['party_id']}', {'from': _period.from, 'to': _period.to}));
+      if (mounted) await showDocSheet(context, doc);
     } catch (e) {
       if (mounted) toast(context, '$e', error: true);
     }
+  }
+
+  Future<void> _makeBill(Map<String, dynamic> u) async {
+    final s = SessionScope.read(context);
+    try {
+      final r = await s.api.post('/bills/from-sales', {'party_id': widget.party['party_id'], 'from': '${u['first_date']}'.substring(0, 10), 'to': todayIso()});
+      final bills = List<dynamic>.from(r['bills']);
+      setState(() => _unbilled = null);
+      if (mounted && bills.isNotEmpty) await showDocSheet(context, Map<String, dynamic>.from(bills.first));
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
+
+  Map<String, dynamic>? _unbilled;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final s = SessionScope.read(context);
+      if (!s.on('billing')) return;
+      try {
+        final u = List<dynamic>.from(await s.api.get('/bills/unbilled')).where((x) => '${x['party_id']}' == '${widget.party['party_id']}').firstOrNull;
+        if (mounted && u != null) setState(() => _unbilled = Map<String, dynamic>.from(u));
+      } catch (_) {}
+    });
   }
 
   @override
@@ -116,7 +128,8 @@ class _VendorDetailState extends State<VendorDetail> {
     final p = widget.party;
     return Scaffold(
       appBar: AppBar(title: Text('${p['name']}'), actions: [
-        if ('${p['phone'] ?? ''}'.isNotEmpty) IconButton(tooltip: 'WhatsApp reminder', onPressed: _remind, icon: const Icon(Icons.chat, color: Color(0xFF16A34A))),
+        if (s.on('billing')) IconButton(tooltip: tr('Send statement'), onPressed: _statement, icon: const Icon(Icons.chat, color: Color(0xFF16A34A)))
+        else if ('${p['phone'] ?? ''}'.isNotEmpty) IconButton(tooltip: 'WhatsApp reminder', onPressed: _remind, icon: const Icon(Icons.chat, color: Color(0xFF16A34A))),
         IconButton(tooltip: tr('Prices'), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RecordsScreen(resKey: 'price_list', presetFilters: {'party_id': p['party_id']}))), icon: const Icon(Icons.sell_outlined)),
       ]),
       floatingActionButton: FloatingActionButton.extended(onPressed: _payment, icon: const Icon(Icons.payments_outlined), label: Text(tr('Payment received')), backgroundColor: Brand.green, foregroundColor: Colors.white),
@@ -125,6 +138,15 @@ class _VendorDetailState extends State<VendorDetail> {
           Expanded(child: Text('Due ${money(p['balance'], s.cur)} · overdue ${money(p['overdue'], s.cur)}', style: const TextStyle(fontWeight: FontWeight.w700))),
           PeriodDropdown(value: _period, onChanged: (v) { setState(() => _period = v); _loader.currentState?.reload(); }),
         ])),
+        if (_unbilled != null)
+          Container(
+            margin: const EdgeInsets.fromLTRB(14, 6, 14, 0), padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+            decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(14)),
+            child: Row(children: [
+              Expanded(child: Text('${_unbilled!['line_count']} ${tr('sale(s) not on a bill')} · ${money(_unbilled!['amount'], s.cur)}')),
+              FilledButton(onPressed: () => _makeBill(_unbilled!), child: Text(tr('Make bill'))),
+            ]),
+          ),
         Expanded(child: Loader<Map<String, dynamic>>(
           key: _loader,
           load: () async => Map<String, dynamic>.from(await s.api.get('/reports/vendor/${p['party_id']}', {'from': _period.from, 'to': _period.to})),

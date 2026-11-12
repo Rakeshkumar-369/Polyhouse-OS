@@ -116,6 +116,9 @@ export default function Dashboard() {
   const [farm, setFarm] = useState('');
   const farms = useOptions('farms');
   const { data: d, error, reload } = useApi('/dashboard', { from: period.from, to: period.to, group: period.group, farm_id: farm });
+  const own = ['admin', 'manager'].includes(role);
+  const share = useApi(own ? '/share/today' : null);
+  const unbilled = useApi(own && on('billing') ? '/bills/unbilled' : null);
 
   if (error && !d) return <ErrorBox text={error} onRetry={reload} />;
   if (!d) return <Skeleton rows={3} />;
@@ -135,9 +138,16 @@ export default function Dashboard() {
             <option value="">{t('All farms')}</option>{farms.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
           </select>
         )}
+        {share.data && <a className="btn bg-[#16a34a] hover:bg-[#15803d] text-white !py-2" href={share.data.whatsapp} target="_blank" rel="noreferrer"><Icon name="whatsapp" /> {t("Share today's summary")}</a>}
       </PageHeader>
 
       {role === 'admin' && <Setup s={d.setup} />}
+      {unbilled.data?.length > 0 && (
+        <Link to="/bills?tab=tobill" className="flex items-center justify-between gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm hover:border-amber-400">
+          <span><Icon name="receipt" className="text-amber-600" /> <b>{money(unbilled.data.reduce((a, u) => a + Number(u.amount), 0), cur)}</b> {t('of sales not on a bill')} · {unbilled.data.length} {t('vendors')}</span>
+          <span className="font-semibold text-amber-700 whitespace-nowrap">{t('Make bills')} →</span>
+        </Link>
+      )}
 
       <div className="rounded-2xl px-4 py-3.5 bg-gradient-to-r from-brand-800 to-brand-600 text-white shadow-sm">
         <div className="text-[11px] uppercase tracking-wider text-brand-100 font-semibold"><Icon name="lightbulb" /> {t('In one line')}</div>

@@ -6,6 +6,7 @@ import '../core/i18n.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'suggestions_screen.dart';
+import 'bills_screen.dart';
 
 String greeting() {
   final h = DateTime.now().hour;
@@ -21,6 +22,33 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final _loader = GlobalKey<LoaderState<Map<String, dynamic>>>();
   late Period _period = periods().firstWhere((p) => p.key == 'this_month');
+  List<dynamic> _unbilled = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadUnbilled());
+  }
+
+  Future<void> _loadUnbilled() async {
+    final s = SessionScope.read(context);
+    if (!s.isManager || !s.on('billing')) return;
+    try {
+      final u = List<dynamic>.from(await s.api.get('/bills/unbilled'));
+      if (mounted) setState(() => _unbilled = u);
+    } catch (_) {}
+  }
+
+  // Today's harvest / sales / collection / dues as a WhatsApp message (for a partner or family group)
+  Future<void> _shareToday() async {
+    final s = SessionScope.read(context);
+    try {
+      final r = await s.api.get('/share/today');
+      await openLink('${r['whatsapp']}');
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +81,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Expanded(child: Text('${greeting()}, ${'${s.user['name']}'.split(' ').first}', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800))),
         PeriodDropdown(value: _period, onChanged: (v) { setState(() => _period = v); _loader.currentState?.reload(); }),
       ]),
+      const SizedBox(height: 8),
+      Align(alignment: Alignment.centerLeft, child: FilledButton.icon(
+        onPressed: _shareToday, style: FilledButton.styleFrom(backgroundColor: whatsappGreen, visualDensity: VisualDensity.compact),
+        icon: const Icon(Icons.chat, size: 18), label: Text(tr("Share today's summary")))),
+      if (_unbilled.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        Material(
+          color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(14),
+          child: ListTile(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            leading: const Icon(Icons.receipt_long, color: Brand.amber),
+            title: Text('${money(_unbilled.fold<double>(0, (a, u) => a + toD(u['amount'])), cur)} ${tr('of sales not on a bill')}', style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text('${_unbilled.length} ${tr('vendors')}'),
+            trailing: Text('${tr('Make bills')} →', style: const TextStyle(color: Brand.amber, fontWeight: FontWeight.w700)),
+            onTap: () async {
+              await Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: Text(tr('Bills'))), body: const BillsScreen(initialTab: 1))));
+              _loadUnbilled();
+            },
+          ),
+        ),
+      ],
       const SizedBox(height: 12),
       Container(
         padding: const EdgeInsets.all(16),

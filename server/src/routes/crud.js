@@ -129,15 +129,21 @@ router.get('/r/:res/:id', wrap(async (req, res) => {
   res.json(row);
 }));
 
-router.post('/r/:res', wrap(async (req, res) => {
-  const r = getRes(req, res, 'write'); if (!r) return;
-  const d = await clean(r, req.body, req.org, true);
-  const ctx = { op: 'create', user: req.user, org: req.org, body: req.body };
+// Create one record with all validation and business rules (also used by billing for sale lines)
+async function createRecord(key, body, { user, org }) {
+  const r = R[key];
+  const d = await clean(r, body, org, true);
+  const ctx = { op: 'create', user, org, body };
   if (r.hooks.before) await r.hooks.before(d, ctx);
-  d.org_id = req.org.id;
+  d.org_id = org.id;
   const result = await q(`INSERT INTO ${r.table} SET ?`, [d]);
   if (r.hooks.after) await r.hooks.after(result.insertId, d, ctx, 'create');
-  res.json(await one(`${buildSelect(r, req.org)} WHERE t.id=?`, [result.insertId]));
+  return one(`${buildSelect(r, org)} WHERE t.id=?`, [result.insertId]);
+}
+
+router.post('/r/:res', wrap(async (req, res) => {
+  const r = getRes(req, res, 'write'); if (!r) return;
+  res.json(await createRecord(r.key, req.body, req));
 }));
 
 router.put('/r/:res/:id', wrap(async (req, res) => {
@@ -176,3 +182,5 @@ router.delete('/r/:res/:id', wrap(async (req, res) => {
 module.exports = router;
 module.exports.wrap = wrap;
 module.exports.isDate = isDate;
+module.exports.createRecord = createRecord;
+module.exports.canWrite = canWrite;
